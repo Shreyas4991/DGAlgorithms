@@ -113,7 +113,19 @@ def toSimpleFinGraph (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj] (d
   loopless := by apply toFinGraph_SG_loopless
 }
 
-def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (g.G.adj_list v).length
+def List.isUnique (xs : List α) : Prop :=
+  match xs with
+  | [] => True
+  | y :: ys => ¬ y ∈ ys ∧ List.isUnique ys
+
+def List.toUnique [DecidableEq α] (xs : List α) : List α :=
+  match xs with
+  | [] => []
+  | y :: ys =>
+      let ys' := List.toUnique ys
+      if y ∈ ys then ys' else y :: ys'
+
+def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (List.toUnique (g.G.adj_list v)).length
 
 def isIsolated (g : SimpleFinGraph α n) (v : Fin n) : Prop :=
   (g.G.adj_list v).isEmpty = true
