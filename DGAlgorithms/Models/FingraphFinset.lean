@@ -8,8 +8,8 @@ namespace DG
 
 structure Fingraph (α : Type) (n : Nat) where
   data : Vec α n
-  adj_list : Fin n → List (Fin n)
-deriving Repr, BEq
+  adj_set : Fin n → Finset (Fin n)
+deriving BEq
 
 
 
@@ -23,23 +23,22 @@ def Vector.fromList (xs : List α) : Vector α xs.length := {
 def Vector.toFn (v : Vector α n) : Fin n → α := fun i => v[i]
 
 def fromVec [Inhabited α] (n : Nat)
-  (inp : Vector (List (Fin n)) n) : Fingraph α n := {
+  (inp : Vector (Finset (Fin n)) n) : Fingraph α n := {
     data := Vec.mkVector n default,
-    adj_list := Vector.toFn inp
+    adj_set := Vector.toFn inp
   }
 
-def isFinMem (x : α) (f : Fin n → α) := ∃ i : Fin n, f i = x
 
 
 structure SimpleFinGraph (α : Type) (n : Nat) where
   G : Fingraph α n
-  symmetric : ∀ i j : Fin n, j ∈ (G.adj_list i) → i ∈ (G.adj_list j)
-  loopless : ∀ i : Fin n, ¬ i ∈ G.adj_list i
+  symmetric : ∀ i j : Fin n, j ∈ (G.adj_set i) → i ∈ (G.adj_set j)
+  loopless : ∀ i : Fin n, ¬ i ∈ G.adj_set i
 
 namespace SimpleFingraph
 
 @[simp]
-def isAdj (g : Fingraph α n) (v w : Fin n) : Prop := w ∈ g.adj_list v
+def isAdj (g : Fingraph α n) (v w : Fin n) : Prop := w ∈ g.adj_set v
 
 lemma symm_isAdj (g : SimpleFinGraph α n) : ∀ (v w : Fin n),
   isAdj g.G v w → isAdj g.G w v := by
@@ -66,16 +65,13 @@ def toSimpleGraph (g : SimpleFinGraph α n) : SimpleGraph (Fin n) := {
 
 def toFinGraph (g : SimpleGraph (Fin n)) [DecidableRel g.Adj] (data : Fin n → α) :Fingraph α n := {
     data := Vector.ofFn data
-    adj_list := fun i =>
-        List.filter (fun j => decide <| g.Adj i j) (List.finRange n)
+    adj_set := fun i => {j : Fin n | g.Adj i j}.toFinset
   }
 
 lemma ofFinGraph_Adj (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj]:
   ∀ i j : Fin n, g.Adj i j →  isAdj (toFinGraph g data) i j := by
   intro i j h_adj
   simp [isAdj, toFinGraph]
-  rw  [List.mem_filter]
-  simp only [List.mem_finRange, decide_eq_true_eq, true_and]
   exact h_adj
   done
 
@@ -83,9 +79,7 @@ lemma toFinGraph_Adj (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj]:
   ∀ i j : Fin n, isAdj (toFinGraph g data) i j → g.Adj i j := by
     intro i j
     simp [toFinGraph]
-    intro h
-    rw [List.mem_filter] at h
-    simp_all only [List.mem_finRange, decide_eq_true_eq, true_and]
+    done
 
 lemma toFinGraph_SG_symmetric (data : Fin n → α):
   ∀ (g : SimpleGraph (Fin n)) [DecidableRel g.Adj],
@@ -113,11 +107,13 @@ def toSimpleFinGraph (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj] (d
   loopless := by apply toFinGraph_SG_loopless
 }
 
+@[simp]
 def List.isUnique (xs : List α) : Prop :=
   match xs with
   | [] => True
   | y :: ys => ¬ y ∈ ys ∧ List.isUnique ys
 
+@[simp]
 def List.toUnique [DecidableEq α] (xs : List α) : List α :=
   match xs with
   | [] => []
@@ -125,13 +121,12 @@ def List.toUnique [DecidableEq α] (xs : List α) : List α :=
       let ys' := List.toUnique ys
       if y ∈ ys then ys' else y :: ys'
 
-lemma uniqueness_correct [DecidableEq α] (l : List α): List.isUnique (List.toUnique l) := by
-  sorry
 
-def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (List.toUnique (g.G.adj_list v)).length
+def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (g.G.adj_set v).card
 
 def isIsolated (g : SimpleFinGraph α n) (v : Fin n) : Prop :=
-  (g.G.adj_list v).isEmpty = true
+  (g.G.adj_set v) = ∅
+
 
 def isClique (g : SimpleFinGraph α n) : Prop :=
   ∀ v w : Fin n, isAdj g.G v w
@@ -197,70 +192,32 @@ lemma List.filter_equiv : ∀ l : List α, ∀ p q : α → Bool,
   done
 
 
+
 -- now comes the pain
-def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visited : Fin n → Bool) :=
-  match stack with
-  | [] => visited
-  | top :: remaining =>
-      let nextVisited := fun i => if i = top then true else visited i
-      let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
-      DFS_ConnectedCompAux g (unVisitedNbrs ++ remaining) nextVisited
-  termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
-  decreasing_by
-    simp_wf
-    have h1 (i : Fin n) : !(i = top) && !(visited i) → !visited i := by
-      simp_all
-      done
-    set l1 := (List.filter (List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)).length) (List.finRange n)
-    set l2 := (List.filter (fun i => !visited i) (List.finRange n))
-    have hsub: List.Sublist l1 l2 := by
-      apply List.monotone_filter_right
-      exact h1
-      done
-    have hle : l1.length ≤ l2.length := by
-      apply List.Sublist.length_le
-      apply hsub
-      done
-    have hne : l1 ≠ l2 := by
-      intro heq
-      have hiff : ∀ i ∈ List.finRange n, !decide (i = start) && !visited i ↔ !visited i := by
-        intro i
-        apply List.filter_equiv
-        exact heq
-        done
-      replace hiff := hiff start
-      simp_all?
+noncomputable def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (start : Fin n) (visited : Fin n → Bool) :=
+  if _ : visited start = true
+  then visited
+  else
+    let nextVisited := fun i => if i = start then true else visited i
+    let unVisitedNbrs := {node ∈ g.G.adj_set start  | visited node}
+    if unVisitedNbrs = ∅ then sorry else sorry
 
-      done
-    have hlength_ne : l1.length ≠ l2.length := by
-      intro heq_length
-      have contra : l1 = l2 := by
-        apply List.Sublist.eq_of_length
-        exact hsub
-        exact heq_length
-        done
-      exact hne contra
-      done
-    omega
-    done
+noncomputable def DFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
+  DFS_ConnectedCompAux g start (fun _ => false)
 
-def DFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
-  DFS_ConnectedCompAux g [start] (fun _ => false)
 
 lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g v)
   : ∀ w : Fin n, ¬ isAdj g.G v w := by
   intro w hcontra
   simp [isAdj] at hcontra
   simp [isIsolated] at h
-  rw[List.isEmpty_iff_eq_nil] at h
   rw[h] at hcontra
   cases hcontra
   done
 
-
 def exG : Fingraph (Fin 5) 5 where
   data := Vector.fromList (List.finRange 5)
-  adj_list := ![{1}, {0, 2}, {1, 3}, {2, 4}, {3}]
+  adj_set := ![{1}, {0, 2}, {1, 3}, {2, 4}, {3}]
 
 def exGSim: SimpleFinGraph (Fin 5) 5 where
   G := exG
@@ -268,8 +225,9 @@ def exGSim: SimpleFinGraph (Fin 5) 5 where
   loopless := by decide
 
 #eval List.ofFn (fun i => (DFS_ConnectedComp exGSim) i)
-#eval exGSim.G.adj_list 1
-#eval exGSim.G.adj_list 3
+#eval exGSim.G.adj_set 1
+#eval exGSim.G.adj_set 3
+
 
 end SimpleFingraph
 end DG
