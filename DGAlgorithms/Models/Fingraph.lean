@@ -211,8 +211,9 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
     have h1 (i : Fin n) : !(i = top) && !(visited i) → !visited i := by
       simp_all
       done
-    set l1 := (List.filter (List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)).length) (List.finRange n)
-    set l2 := (List.filter (fun i => !visited i) (List.finRange n))
+    set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n) with hl1
+    set l2 := (List.filter (fun i => !visited i) (List.finRange n)) with hl2
+
     have hsub: List.Sublist l1 l2 := by
       apply List.monotone_filter_right
       exact h1
@@ -223,13 +224,13 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
       done
     have hne : l1 ≠ l2 := by
       intro heq
-      have hiff : ∀ i ∈ List.finRange n, !decide (i = start) && !visited i ↔ !visited i := by
+      have hiff : ∀ i ∈ List.finRange n, !decide (i = top) && !visited i ↔ !visited i := by
         intro i
         apply List.filter_equiv
         exact heq
         done
-      replace hiff := hiff start
-      simp_all?
+      replace hiff := hiff top
+      simp_all
 
       done
     have hlength_ne : l1.length ≠ l2.length := by
@@ -258,11 +259,11 @@ lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g 
   done
 
 
-def exG : Fingraph (Fin 5) 5 where
-  data := Vector.fromList (List.finRange 5)
-  adj_list := ![{1}, {0, 2}, {1, 3}, {2, 4}, {3}]
+def exG : Fingraph (Fin 7) 7 where
+  data := Vector.fromList (List.finRange 7)
+  adj_list := ![{1}, {0, 2}, {1, 3}, {2, 4}, {3}, {6}, {5}]
 
-def exGSim: SimpleFinGraph (Fin 5) 5 where
+def exGSim: SimpleFinGraph (Fin 7) 7 where
   G := exG
   symmetric := by decide
   loopless := by decide
