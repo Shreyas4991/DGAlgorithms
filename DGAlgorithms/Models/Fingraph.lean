@@ -230,7 +230,8 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (start : Fin n) (visited : Fi
     omega
     done
 
-
+def DFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
+  DFS_ConnectedCompAux g start (fun _ => false)
 
 lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g v)
   : ∀ w : Fin n, ¬ isAdj g.G v w := by
