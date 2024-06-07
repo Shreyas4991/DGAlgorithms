@@ -1,6 +1,7 @@
 import DGAlgorithms.Models.Vector
 import Mathlib
 import Batteries
+import DGAlgorithms.Models.ListAPI
 
 open DG renaming Vector → Vec
 open SimpleGraph
@@ -113,22 +114,7 @@ def toSimpleFinGraph (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj] (d
   loopless := by apply toFinGraph_SG_loopless
 }
 
-def List.isUnique (xs : List α) : Prop :=
-  match xs with
-  | [] => True
-  | y :: ys => ¬ y ∈ ys ∧ List.isUnique ys
-
-def List.toUnique [DecidableEq α] (xs : List α) : List α :=
-  match xs with
-  | [] => []
-  | y :: ys =>
-      let ys' := List.toUnique ys
-      if y ∈ ys then ys' else y :: ys'
-
-lemma uniqueness_correct [DecidableEq α] (l : List α): List.isUnique (List.toUnique l) := by
-  sorry
-
-def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (List.toUnique (g.G.adj_list v)).length
+def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (toUnique (g.G.adj_list v)).length
 
 def isIsolated (g : SimpleFinGraph α n) (v : Fin n) : Prop :=
   (g.G.adj_list v).isEmpty = true
@@ -202,9 +188,13 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
   match stack with
   | [] => visited
   | top :: remaining =>
-      let nextVisited := fun i => if i = top then true else visited i
-      let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
-      DFS_ConnectedCompAux g (unVisitedNbrs ++ remaining) nextVisited
+      if visited top
+      then
+        visited
+      else
+        let nextVisited := fun i => if i = top then true else visited i
+        let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
+        DFS_ConnectedCompAux g (unVisitedNbrs ++ remaining) nextVisited
   termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
   decreasing_by
     simp_wf
@@ -231,7 +221,6 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
         done
       replace hiff := hiff top
       simp_all
-
       done
     have hlength_ne : l1.length ≠ l2.length := by
       intro heq_length
