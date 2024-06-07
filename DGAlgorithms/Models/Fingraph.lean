@@ -7,6 +7,7 @@ open DG renaming Vector → Vec
 open SimpleGraph
 namespace DG
 
+-- This is a multigraph
 structure Fingraph (α : Type) (n : Nat) where
   data : Vec α n
   adj_list : Fin n → List (Fin n)
@@ -32,6 +33,9 @@ def fromVec [Inhabited α] (n : Nat)
 def isFinMem (x : α) (f : Fin n → α) := ∃ i : Fin n, f i = x
 
 
+
+-- Still a multipgraph.
+-- When converting to an actual `SimpleGraph`, we use `isAdj` defined below
 structure SimpleFinGraph (α : Type) (n : Nat) where
   G : Fingraph α n
   symmetric : ∀ i j : Fin n, j ∈ (G.adj_list i) → i ∈ (G.adj_list j)
@@ -40,7 +44,7 @@ structure SimpleFinGraph (α : Type) (n : Nat) where
 namespace SimpleFingraph
 
 @[simp]
-def isAdj (g : Fingraph α n) (v w : Fin n) : Prop := w ∈ g.adj_list v
+def isAdj (g : Fingraph α n) (v w : Fin n) : Prop := w ∈ g.adj_list v -- ignore multi-edges
 
 lemma symm_isAdj (g : SimpleFinGraph α n) : ∀ (v w : Fin n),
   isAdj g.G v w → isAdj g.G w v := by
@@ -114,10 +118,20 @@ def toSimpleFinGraph (g : SimpleGraph (Fin n)) [instDec : DecidableRel g.Adj] (d
   loopless := by apply toFinGraph_SG_loopless
 }
 
-def deg_v (g : SimpleFinGraph α n) (v : Fin n) : ℕ := (toUnique (g.G.adj_list v)).length
+def deg_v (g : Fingraph α n) (v : Fin n) : ℕ := (g.adj_list v).length
 
 def isIsolated (g : SimpleFinGraph α n) (v : Fin n) : Prop :=
   (g.G.adj_list v).isEmpty = true
+
+lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g v)
+  : ∀ w : Fin n, ¬ isAdj g.G v w := by
+  intro w hcontra
+  simp [isAdj] at hcontra
+  simp [isIsolated] at h
+  rw[List.isEmpty_iff_eq_nil] at h
+  rw[h] at hcontra
+  cases hcontra
+  done
 
 def isClique (g : SimpleFinGraph α n) : Prop :=
   ∀ v w : Fin n, isAdj g.G v w
@@ -147,54 +161,24 @@ def isCycleList (g : SimpleFinGraph α n) (w : List (Fin n)) (h : w.length ≥ 3
 
 
 
--- Helper lemmas
-lemma List.filter_pred: ∀ l : List α, ∀ p : α → Bool,
-  x ∈ (List.filter p l) → p x = true := by
-  exact fun l p a => List.of_mem_filter a
-
-lemma List.membership : ∀ l r : List α, l = r → ∀ x : α, x ∈ l ↔ x ∈ r := by
-  intro l r eq x
-  exact Eq.to_iff (congrArg (Membership.mem x) eq)
-
-lemma List.filter_equiv : ∀ l : List α, ∀ p q : α → Bool,
-  (List.filter p l) = (List.filter q l) → ∀ x ∈ l, p x ↔ q x := by
-  intro l p q heq
-  intro x x_elem_l
-  apply List.membership at heq
-  constructor
-  · intro hp
-    replace heq := (heq x).mp
-    have hfiltp : x ∈ List.filter p l := by
-      apply List.mem_filter.mpr
-      exact And.intro x_elem_l hp
-      done
-    apply heq at hfiltp
-    have hnext := List.mem_filter.mp hfiltp
-    exact hnext.right
-  · intro hq
-    replace heq := (heq x).mpr
-    have hfiltp : x ∈ List.filter q l := by
-      apply List.mem_filter.mpr
-      exact And.intro x_elem_l hq
-      done
-    apply heq at hfiltp
-    have hnext := List.mem_filter.mp hfiltp
-    exact hnext.right
-  done
-
-
 -- now comes the pain
-def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visited : Fin n → Bool) :=
+def DFS_ConnectedCompAux (g : Fingraph α n)
+  (stack : List (Fin n))
+  (visited : Fin n → Bool)
+  (traversal_acc : Array (Fin n)):=
   match stack with
-  | [] => visited
+  | [] => (visited, stack, traversal_acc)
   | top :: remaining =>
-      if visited top
+      if visited top -- This condition is there purely for proof. It is never entered
       then
-        visited
+        (visited,stack, traversal_acc)
       else
         let nextVisited := fun i => if i = top then true else visited i
-        let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
-        DFS_ConnectedCompAux g (unVisitedNbrs ++ remaining) nextVisited
+        let unVisitedNbrs := List.filter (fun i => !visited i) (g.adj_list  top)
+        let new_traversal_acc := traversal_acc.push top
+        let new_stack := unVisitedNbrs ++ remaining
+        DFS_ConnectedCompAux g new_stack nextVisited new_traversal_acc
+  -- def ends here. termination proof follows
   termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
   decreasing_by
     simp_wf
@@ -234,21 +218,27 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
     omega
     done
 
-def DFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
-  DFS_ConnectedCompAux g [start] (fun _ => false)
+def DFS_ConnectedComp (g : Fingraph α n) (start : Fin n) :=
+  DFS_ConnectedCompAux g [start] (fun _ => false) #[]
 
 -- now comes the pain
-def BFS_ConnectedCompAux (g : SimpleFinGraph α n) (queue : List (Fin n))(visited : Fin n → Bool) :=
+def BFS_ConnectedCompAux (g : Fingraph α n)
+  (queue : List (Fin n))
+  (visited : Fin n → Bool)
+  (traversal_acc : Array (Fin n)):=
   match queue with
-  | [] => visited
+  | [] => (visited, queue, traversal_acc)
   | top :: remaining =>
-      if visited top
+      if visited top -- This condition is there purely for proof. It is never entered
       then
-        visited
+        (visited, queue, traversal_acc)
       else
         let nextVisited := fun i => if i = top then true else visited i
-        let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
-        BFS_ConnectedCompAux g (remaining ++ unVisitedNbrs) nextVisited
+        let unVisitedNbrs := List.filter (fun i => !visited i) (g.adj_list  top)
+        let new_trav_acc := traversal_acc.push top
+        let new_queue := remaining ++ unVisitedNbrs
+        BFS_ConnectedCompAux g new_queue nextVisited new_trav_acc
+  -- def ends here. termination proof follows
   termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
   decreasing_by
     simp_wf
@@ -287,18 +277,10 @@ def BFS_ConnectedCompAux (g : SimpleFinGraph α n) (queue : List (Fin n))(visite
       done
     omega
     done
-lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g v)
-  : ∀ w : Fin n, ¬ isAdj g.G v w := by
-  intro w hcontra
-  simp [isAdj] at hcontra
-  simp [isIsolated] at h
-  rw[List.isEmpty_iff_eq_nil] at h
-  rw[h] at hcontra
-  cases hcontra
-  done
 
-def BFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
-  BFS_ConnectedCompAux g [start] (fun _ => false)
+
+def BFS_ConnectedComp (g : Fingraph α n) (start : Fin n) :=
+  BFS_ConnectedCompAux g [start] (fun _ => false)  #[]
 
 def exG : Fingraph (Fin 7) 7 where
   data := Vector.fromList (List.finRange 7)
@@ -309,9 +291,30 @@ def exGSim: SimpleFinGraph (Fin 7) 7 where
   symmetric := by decide
   loopless := by decide
 
-#eval List.ofFn (fun i => (DFS_ConnectedComp exGSim) i)
-#eval List.ofFn (fun i => (BFS_ConnectedComp exGSim) i)
-#eval exGSim.G.adj_list 1
+/-
+          0
+        /   \
+       /     \
+      1       2
+    /   \    /  \
+   3     4  5    6
+          /   \
+         7     8
+-/
+def exG2 : Fingraph (Fin 9) 9 where
+  data := Vector.fromList (List.finRange 9)
+  adj_list := ![{1,2}, {0,3,4}, {0,5,6}, {1}, {1}, {2,7,8}, {2},{5},{5}]
+
+def exGSim2: SimpleFinGraph (Fin 9) 9 where
+  G := exG2
+  symmetric := by decide
+  loopless := by decide
+
+#eval List.ofFn (fun i => (DFS_ConnectedComp exG i))
+#eval List.ofFn (fun i => (BFS_ConnectedComp exG i))
+#eval List.ofFn (fun i => (DFS_ConnectedComp exG2 i).2.2) -- DFS traversal order
+#eval List.ofFn (fun i => (BFS_ConnectedComp exG2 i).2.2) -- BFS traversal order
+#eval exGSim2.G.adj_list 1
 #eval exGSim.G.adj_list 3
 
 end SimpleFingraph
