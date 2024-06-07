@@ -237,6 +237,56 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
 def DFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
   DFS_ConnectedCompAux g [start] (fun _ => false)
 
+-- now comes the pain
+def BFS_ConnectedCompAux (g : SimpleFinGraph α n) (queue : List (Fin n))(visited : Fin n → Bool) :=
+  match queue with
+  | [] => visited
+  | top :: remaining =>
+      if visited top
+      then
+        visited
+      else
+        let nextVisited := fun i => if i = top then true else visited i
+        let unVisitedNbrs := List.filter (fun i => !visited i) (g.G.adj_list  top)
+        BFS_ConnectedCompAux g (remaining ++ unVisitedNbrs) nextVisited
+  termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
+  decreasing_by
+    simp_wf
+    have h1 (i : Fin n) : !(i = top) && !(visited i) → !visited i := by
+      simp_all
+      done
+    set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)
+    set l2 := (List.filter (fun i => !visited i) (List.finRange n))
+
+    have hsub: List.Sublist l1 l2 := by
+      apply List.monotone_filter_right
+      exact h1
+      done
+    have hle : l1.length ≤ l2.length := by
+      apply List.Sublist.length_le
+      apply hsub
+      done
+    have hne : l1 ≠ l2 := by
+      intro heq
+      have hiff : ∀ i ∈ List.finRange n, !decide (i = top) && !visited i ↔ !visited i := by
+        intro i
+        apply List.filter_equiv
+        exact heq
+        done
+      replace hiff := hiff top
+      simp_all
+      done
+    have hlength_ne : l1.length ≠ l2.length := by
+      intro heq_length
+      have contra : l1 = l2 := by
+        apply List.Sublist.eq_of_length
+        exact hsub
+        exact heq_length
+        done
+      exact hne contra
+      done
+    omega
+    done
 lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g v)
   : ∀ w : Fin n, ¬ isAdj g.G v w := by
   intro w hcontra
@@ -247,6 +297,8 @@ lemma isolated_not_sink (g : SimpleFinGraph α n) (v : Fin n) (h : isIsolated g 
   cases hcontra
   done
 
+def BFS_ConnectedComp (g : SimpleFinGraph α n) (start : Fin n) : Fin n → Bool :=
+  BFS_ConnectedCompAux g [start] (fun _ => false)
 
 def exG : Fingraph (Fin 7) 7 where
   data := Vector.fromList (List.finRange 7)
@@ -258,6 +310,7 @@ def exGSim: SimpleFinGraph (Fin 7) 7 where
   loopless := by decide
 
 #eval List.ofFn (fun i => (DFS_ConnectedComp exGSim) i)
+#eval List.ofFn (fun i => (BFS_ConnectedComp exGSim) i)
 #eval exGSim.G.adj_list 1
 #eval exGSim.G.adj_list 3
 
