@@ -187,62 +187,6 @@ def DFS_ConnectedCompAux (g : Fingraph α n)
       done
     set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)
     set l2 := (List.filter (fun i => !visited i) (List.finRange n))
-
-    have hsub: List.Sublist l1 l2 := by
-      apply List.monotone_filter_right
-      exact h1
-      done
-    have hle : l1.length ≤ l2.length := by
-      apply List.Sublist.length_le
-      apply hsub
-      done
-    have hne : l1 ≠ l2 := by
-      intro heq
-      have hiff : ∀ i ∈ List.finRange n, !decide (i = top) && !visited i ↔ !visited i := by
-        intro i
-        apply List.filter_equiv
-        exact heq
-        done
-      replace hiff := hiff top
-      simp_all
-      done
-    have hlength_ne : l1.length ≠ l2.length := by
-      intro heq_length
-      have contra : l1 = l2 := by
-        apply List.Sublist.eq_of_length
-        exact hsub
-        exact heq_length
-        done
-      exact hne contra
-      done
-    omega
-    done
-
-def DFS_ConnectedCompAux' (g : Fingraph α n)
-  (stack : List (Fin n))
-  (visited : Fin n → Bool)
-  (traversal_acc : Array (Fin n)):=
-  match stack with
-  | [] => (visited, stack, traversal_acc)
-  | top :: remaining =>
-      if visited top
-      then
-        (visited,stack, traversal_acc)
-      else
-        let nextVisited := fun i => if i = top then true else visited i
-        let unVisitedNbrs := List.filter (fun i => !visited i) (g.adj_list  top)
-        let new_traversal_acc := traversal_acc.push top
-        let new_stack := unVisitedNbrs ++ remaining
-        DFS_ConnectedCompAux' g new_stack nextVisited new_traversal_acc
-  -- def ends here. termination proof follows
-  termination_by (List.filter (fun i => !(visited i)) (List.finRange n)).length
-  decreasing_by
-    simp_wf
-    have h1 (i : Fin n) : !(i = top) && !(visited i) → !visited i := by
-      simp_all
-      done
-    set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)
-    set l2 := (List.filter (fun i => !visited i) (List.finRange n))
     have hsub: List.Sublist l1 l2 := by
       solve_by_elim [List.monotone_filter_right]
     have hle : l1.length ≤ l2.length := by
@@ -259,6 +203,7 @@ def DFS_ConnectedCompAux' (g : Fingraph α n)
         solve_by_elim [List.Sublist.eq_of_length]
       tauto
     omega
+
 
 def DFS_ConnectedComp (g : Fingraph α n) (start : Fin n) :=
   DFS_ConnectedCompAux g [start] (fun _ => false) #[]
