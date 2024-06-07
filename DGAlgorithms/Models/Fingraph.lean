@@ -201,8 +201,8 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph α n) (stack : List (Fin n))(visite
     have h1 (i : Fin n) : !(i = top) && !(visited i) → !visited i := by
       simp_all
       done
-    set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n) with hl1
-    set l2 := (List.filter (fun i => !visited i) (List.finRange n)) with hl2
+    set l1 := List.filter (fun i ↦ !decide (i = top) && !visited i) (List.finRange n)
+    set l2 := (List.filter (fun i => !visited i) (List.finRange n))
 
     have hsub: List.Sublist l1 l2 := by
       apply List.monotone_filter_right
