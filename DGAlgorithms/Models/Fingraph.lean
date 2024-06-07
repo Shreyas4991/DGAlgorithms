@@ -169,7 +169,7 @@ def DFS_ConnectedCompAux (g : Fingraph α n)
   match stack with
   | [] => (visited, stack, traversal_acc)
   | top :: remaining =>
-      if visited top -- This condition is there purely for proof. It is never entered
+      if visited top
       then
         (visited,stack, traversal_acc)
       else
@@ -229,7 +229,7 @@ def BFS_ConnectedCompAux (g : Fingraph α n)
   match queue with
   | [] => (visited, queue, traversal_acc)
   | top :: remaining =>
-      if visited top -- This condition is there purely for proof. It is never entered
+      if visited top
       then
         (visited, queue, traversal_acc)
       else
