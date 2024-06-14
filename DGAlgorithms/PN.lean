@@ -1,5 +1,5 @@
-import Mathlib
 import DGAlgorithms.ForMathlib.SimpleGraph
+import Mathlib.Combinatorics.SimpleGraph.Coloring
 
 /-- Simple port numbered networks -/
 structure PortNumbered (V : Type*) extends SimpleGraph V :=
@@ -197,6 +197,9 @@ lemma nextVector_stopped (curr : V → S) {v : V} (h : curr v ∈ A.stoppingStat
     A.nextVector N curr v = curr v := by
   rw [nextVector, A.fullReceive_stoppingState h]
 
+lemma nextVector_mem_stoppingStates (curr : V → S) {v : V} (h : curr v ∈ A.stoppingStates) :
+    A.nextVector N curr v ∈ A.stoppingStates := by rwa [nextVector_stopped _ _ _ h]
+
 /-- When proving the state at v doesn't change, you can assume v is not currently stopped. -/
 lemma nextVector_eq_self (curr : V → S)
     {v : V} (h : curr v ∉ A.stoppingStates → A.nextVector N curr v = curr v) :
@@ -219,10 +222,7 @@ def outputs (curr : V → S) (h : A.isStopped curr) : V → O :=
   fun v => A.getOutput curr v (h v)
 
 lemma nextVector_isStopped (curr : V → S) (h : A.isStopped curr) :
-    A.isStopped (A.nextVector N curr) := by
-  intro v
-  specialize h v
-  rwa [A.nextVector_stopped N _ h]
+    A.isStopped (A.nextVector N curr) := fun v => nextVector_mem_stoppingStates _ _ _ (h v)
 
 /--
 Given an input vector, `rounds f n` gives the state of each node after n communication rounds.
@@ -235,6 +235,21 @@ lemma rounds_succ : A.rounds N f (T + 1) = A.nextVector N (A.rounds N f T) :=
 
 lemma rounds_zero : A.rounds N f 0 = A.initialVector N f := rfl
 
+lemma rounds_eq_of_mem_stoppingStates (f : V → I) {t₁ t₂ : ℕ} (ht : t₁ ≤ t₂) (v : V)
+    (h : A.rounds N f t₁ v ∈ A.stoppingStates) :
+    A.rounds N f t₁ v = A.rounds N f t₂ v := by
+  induction t₂, ht using Nat.le_induction
+  case base => rfl
+  case succ t₂ ht ih =>
+    rw [rounds_succ]
+    rw [ih, nextVector_stopped]
+    rwa [←ih]
+
+lemma rounds_mem_stoppingStates (f : V → I) {t₁ t₂ : ℕ} (ht : t₁ ≤ t₂) (v : V)
+    (h : A.rounds N f t₁ v ∈ A.stoppingStates) :
+    A.rounds N f t₂ v ∈ A.stoppingStates := by
+  rwa [←rounds_eq_of_mem_stoppingStates A N f ht _ h]
+
 /-- The condition that we stop within time t. -/
 def stoppedBy (f : V → I) (t : ℕ) : Prop := A.isStopped (A.rounds N f t)
 
@@ -242,13 +257,11 @@ instance [Fintype V] : DecidablePred (A.stoppedBy N f) :=
   fun _ => inferInstanceAs (Decidable (A.isStopped _))
 
 lemma rounds_eq_of_le_stoppedBy {f : V → I} {t₁ t₂ : ℕ} (ht : t₁ ≤ t₂) (h : A.stoppedBy N f t₁) :
-    A.rounds N f t₁ = A.rounds N f t₂ := by
-  induction t₂, ht using Nat.le_induction
-  case base => rfl
-  case succ t₂ ht ih => rw [rounds_succ, ←ih, nextVector_eq_of_isStopped _ _ _ h]
+    A.rounds N f t₁ = A.rounds N f t₂ :=
+  funext fun v => rounds_eq_of_mem_stoppingStates A N f ht _ (h v)
 
 /-- If we have stopped by time t, give the output at this time. -/
-def outputAt (f : V → I) (t : ℕ) (h : A.stoppedBy N f t) : V → O := A.outputs _ h
+def outputAt (f : V → I) (t : ℕ) (h : A.stoppedBy N f t) : V → O := A.outputs (A.rounds N f t) h
 
 /-- If we have stopped at time t₁ and time t₂, the output at those points is equal. -/
 lemma outputAt_eq {f : V → I} {t₁ t₂ : ℕ} (h₁ : A.stoppedBy N f t₁) (h₂ : A.stoppedBy N f t₂) :
@@ -361,7 +374,7 @@ def solvesProblemInTime (A : Algorithm I S M O) (Family : (V : Type u) → Set (
     f ∈ inp.valid V N →
     ∃ (t : ℕ) (h : A.stoppedBy N f t),
       t ≤ T (N : SimpleGraph V) ∧
-      A.outputs (A.rounds N f t) h ∈ out.valid V N
+      A.outputAt N f t h ∈ out.valid V N
 
 def solvesProblem (A : Algorithm I S M O) (Family : (V : Type u) → Set (SimpleGraph V))
     (inp : Problem I) (out : Problem O) : Prop :=
@@ -369,7 +382,7 @@ def solvesProblem (A : Algorithm I S M O) (Family : (V : Type u) → Set (Simple
     (N : SimpleGraph V) ∈ Family V →
     f ∈ inp.valid V N →
     ∃ (t : ℕ) (h : A.stoppedBy N f t),
-      A.outputs (A.rounds N f t) h ∈ out.valid V N
+      A.outputAt N f t h ∈ out.valid V N
 
 lemma solvesProblemInTime.solvesProblem (h : solvesProblemInTime A Family inp out T) :
     solvesProblem A Family inp out := by
