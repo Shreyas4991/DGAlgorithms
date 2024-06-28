@@ -278,7 +278,7 @@ by the algorithm does indeed encode a subset of the edges.
 
 Most useful as a building block problem.
  -/
-def EdgeSubset : Problem (Set ℕ) where
+def Problem.EdgeSubset : Problem (Set ℕ) where
   valid V N :=
     {f | ∀ v : V,
       -- each edge label is a valid port number
@@ -290,10 +290,10 @@ def EdgeSubset : Problem (Set ℕ) where
 /--
 Option ℕ encodes a matching on a PN network: none means no edge, some n means edge to the nth port.
 -/
-def Matching : Problem (Option ℕ) where
+def Problem.Matching : Problem (Option ℕ) where
   valid V N := {f | (fun v => (f v).getM) ∈ EdgeSubset.1 V N}
 
-def MaximalMatching : Problem (Option ℕ) where
+def Problem.MaximalMatching : Problem (Option ℕ) where
   valid V N := Matching.valid V N ∩
     {f | ∀ v : V, f v = none → -- for every unmatched node
       ∀ i : Fin (N.degree v), -- and every outward port
@@ -308,7 +308,7 @@ inductive EdgeState where
   | MR : ℕ → EdgeState
   | US
   | MS : ℕ → EdgeState
-  deriving Repr
+  deriving DecidableEq, Repr
 
 inductive ColourState where
   | white : ColourState
@@ -559,27 +559,27 @@ def exampleGraph : SimpleGraph (Fin 2 × Fin 4) where
 instance : DecidableRel exampleGraph.Adj := inferInstanceAs (DecidableRel exampleGraph_adj)
 
 def exampleNumbering : (v : Fin 2 × Fin 4) →
-    exampleGraph.neighborSet v ≃ Fin (exampleGraph.degree v)
-  | ⟨0, 0⟩ => Equiv.symm <| bij_to_equiv
+    Fin (exampleGraph.degree v) ≃ exampleGraph.neighborSet v
+  | ⟨0, 0⟩ => bij_to_equiv
                 (![⟨(1, 0), by decide⟩, ⟨(1, 2), by decide⟩]) (by decide)
-  | ⟨0, 1⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨0, 1⟩ => bij_to_equiv
                 (![⟨(1, 0), by decide⟩, ⟨(1, 1), by decide⟩, ⟨(1, 3), by decide⟩]) (by decide)
-  | ⟨0, 2⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨0, 2⟩ => bij_to_equiv
                 (![⟨(1, 2), by decide⟩]) (by decide)
-  | ⟨0, 3⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨0, 3⟩ => bij_to_equiv
                 (![⟨(1, 2), by decide⟩, ⟨(1, 3), by decide⟩]) (by decide)
-  | ⟨1, 0⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨1, 0⟩ => bij_to_equiv
                 (![⟨(0, 1), by decide⟩, ⟨(0, 0), by decide⟩]) (by decide)
-  | ⟨1, 1⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨1, 1⟩ => bij_to_equiv
                 (![⟨(0, 1), by decide⟩]) (by decide)
-  | ⟨1, 2⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨1, 2⟩ => bij_to_equiv
                 (![⟨(0, 0), by decide⟩, ⟨(0, 2), by decide⟩, ⟨(0, 3), by decide⟩]) (by decide)
-  | ⟨1, 3⟩ => Equiv.symm <| bij_to_equiv
+  | ⟨1, 3⟩ => bij_to_equiv
                 (![⟨(0, 1), by decide⟩, ⟨(0, 3), by decide⟩]) (by decide)
 
 def exampleNetwork : PortNumbered (Fin 2 × Fin 4) where
   toSimpleGraph := exampleGraph
-  numbering := exampleNumbering
+  numbering v := (exampleNumbering v).symm
 
 def test : ℕ → Fin 2 × Fin 4 → State :=
   maximalMatching.rounds exampleNetwork (fun x => x.1 = 1)
@@ -592,7 +592,7 @@ def showEdgeState : EdgeState → Lean.Format
 
 def showState : State → Lean.Format
   | ⟨r, .white, s⟩ => repr r ++ " white " ++ showEdgeState s
-  | ⟨r, .black M X, s⟩ => repr r ++ " black M=" ++ repr (M.sort (· ≤ ·)) ++ " W=" ++ repr (X.sort (· ≤ ·)) ++ " " ++ showEdgeState s
+  | ⟨r, .black M X, s⟩ => s!"{r} black M={M.sort (· ≤ ·)} X={X.sort (· ≤ ·)} {showEdgeState s}"
 
 def allVerts : List (Fin 2 × Fin 4) :=
   [⟨0, 0⟩, ⟨0, 1⟩, ⟨0, 2⟩, ⟨0, 3⟩, ⟨1, 0⟩, ⟨1, 1⟩, ⟨1, 2⟩, ⟨1, 3⟩]
@@ -607,12 +607,26 @@ lemma reversePort_toPort (v w : V) (h : N.Adj v w) :
     · simp
     · simp
 
-lemma reversePort_of_ofPort (u v : V) {i j} (h : N.ofPort u i = v) (h' : N.ofPort v j = u) :
+lemma reversePort_of_ofPort {u v : V} {i : Fin (N.degree u)} {j : Fin (N.degree v)}
+    (h : N.ofPort u i = v) (h' : N.ofPort v j = u) :
     (N.reversePort u i : ℕ) = j := by
   cases h
   rw [←Fin.ext_iff]
   refine N.ofPort_injective _ ?_
   rw [PortNumbered.ofPort_reversePort, h']
+
+lemma ofPort_of_reversePort {u v : V} {i : Fin (N.degree u)} {j : Fin (N.degree v)}
+    (h : N.ofPort u i = v) (h' : (N.reversePort u i : ℕ) = j) :
+    N.ofPort v j = u := by
+  cases h
+  rw [←Fin.ext_iff] at h'
+  cases h'
+  simp
+
+lemma reversePort_eq_iff {u v : V} {i : Fin (N.degree u)} {j : Fin (N.degree v)}
+    (h : N.ofPort u i = v) :
+    (N.reversePort u i : ℕ) = j ↔ N.ofPort v j = u :=
+  ⟨ofPort_of_reversePort _ h, reversePort_of_ofPort _ h⟩
 
 lemma send_stopped (d : ℕ) (k : Fin d) :
     ∀ curr_v ∈ maximalMatching.stoppingStates,
@@ -914,6 +928,45 @@ lemma white_odd_not_MR (f : V → Bool) (u : V) (hu : f u = false) (t : ℕ) (ht
       · simp
       · rw [not_mem_stoppingStates_iff, h]
         simp
+
+/-- If a node is in state UR, its previous state was UR. -/
+lemma prevVector_UR (f : V → Bool) (v : V) (t : ℕ)
+    (h : (maximalMatching.rounds N f (t + 1) v).2.2 = .UR) :
+    (maximalMatching.rounds N f t v).2.2 = .UR := by
+  match h' : (maximalMatching.rounds N f t v).2.2 with
+  | .UR => rfl
+  | .US => simp [nextVector_US N v (Algorithm.rounds_succ _ _) h'] at h
+  | .MS i => simp [nextVector_MS N v _ (Algorithm.rounds_succ _ _) h'] at h
+  | .MR i =>
+      match hv : f v with
+      | true => cases black_not_MR N f v hv t _ rfl ⟨_, h'⟩
+      | false =>
+          simp [nextVector_white_MR N _ _ (Algorithm.rounds_succ _ _)
+            (remains_white N f t v hv) h', ite_eq_iff] at h
+
+/-- If a node is in state MR, its previous state was UR. -/
+lemma prevVector_MR (f : V → Bool) (v : V) (t : ℕ)
+    (h : (maximalMatching.rounds N f (t + 1) v).2.2 = .MR j) :
+    (maximalMatching.rounds N f t v).2.2 = .UR := by
+  match h' : (maximalMatching.rounds N f t v).2.2 with
+  | .UR => rfl
+  | .US =>
+      rw [nextVector_US N v (Algorithm.rounds_succ _ _) h'] at h
+      simp at h
+  | .MS i =>
+      rw [nextVector_MS N v _ (Algorithm.rounds_succ _ _) h'] at h
+      simp at h
+  | .MR i =>
+      have hv : f v = false := by
+        by_contra!
+        simp only [ne_eq, Bool.not_eq_false] at this
+        exact black_not_MR N f v this t _ rfl ⟨_, h'⟩
+      exfalso
+      by_cases ht : Even t
+      case pos =>
+        exact white_odd_not_MR N f v hv (t + 1) (by simp [parity_simps, ht]) _ rfl ⟨_, h⟩
+      case neg =>
+        exact white_odd_not_MR N f v hv t ht _ rfl ⟨_, h'⟩
 
 /-- A black node with state UR at even time has M = ∅. -/
 lemma black_UR_even_has_M_empty (f : V → Bool) (u : V) (hu : f u = true) (t : ℕ) (ht : Even t)
@@ -1222,7 +1275,6 @@ lemma MS_bound (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid _ N) 
   | true => black_MS_bound N f u h _ _ curr hcurr hstate
   | false => white_MS_bound N f hf u h _ _ curr hcurr hstate
 
-
 /-- There are cases where this is the first time the node stops. -/
 lemma white_stops (f : V → Bool) (u : V) (hu : f u = false) :
     maximalMatching.rounds N f (2 * N.degree u + 1) u ∈ maximalMatching.stoppingStates := by
@@ -1320,6 +1372,61 @@ lemma sends_on_match (f : V → Bool)
     intro
     use j
 
+/-- If white u hasn't reached MR or MS, then adjacent black v keeps it in its X. -/
+lemma not_send_on_no_match (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid _ N)
+    (u v : V) (hu : f u = false) (hv : f v = true)
+    (j : Fin (N.degree v)) (hvj : N.ofPort v j = u) (t : ℕ)
+    (hv' : (maximalMatching.rounds N f t v).2.2 = .UR)
+    (h₁ : ∀ i, (maximalMatching.rounds N f t u).2.2 ≠ EdgeState.MS i)
+    (h₂ : ∀ i, (maximalMatching.rounds N f t u).2.2 ≠ EdgeState.MR i) :
+    ∃ M X, (j : ℕ) ∈ X ∧ (maximalMatching.rounds N f t v).2.1 = .black M X := by
+  induction t
+  case zero => simp [Algorithm.rounds_zero, initialVector_2_2, initialVector_2_1, hv] at hv' ⊢
+  case succ t ih =>
+    have h₀ := prevVector_UR _ _ _ _ hv'
+    have h₁' : ∀ (i : ℕ), (maximalMatching.rounds N f t u).2.2 ≠ EdgeState.MS i := by
+      intro i
+      intro hi
+      simp [nextVector_MS N u i (Algorithm.rounds_succ _ _) hi] at h₁
+    have h₂' : ∀ (i : ℕ), (maximalMatching.rounds N f t u).2.2 ≠ EdgeState.MR i := by
+      intro i hi
+      have ht : Even t := by
+        by_contra ht
+        exact white_odd_not_MR N f u hu t ht _ rfl ⟨_, hi⟩
+      rw [nextVector_white_MR N u i (Algorithm.rounds_succ _ _) (remains_white _ _ _ _ hu) hi,
+        if_pos] at h₁
+      case hc =>
+        rwa [maximalMatching_round_count]
+        simp [hi]
+      simp at h₁
+    obtain ⟨M, X, hjX, hMX⟩ := ih (prevVector_UR _ _ _ _ hv') h₁' h₂'
+    have h₄ : maximalMatching.rounds N f t v ∉ maximalMatching.stoppingStates := by
+      rw [not_mem_stoppingStates_iff]
+      simp [h₀]
+    rw [Algorithm.rounds_succ, Algorithm.nextVector, Algorithm.fullReceive_not_stoppingState _ h₄,
+      maximalMatching_receive, maximalMatching_round_count _ _ _ _ h₄, hMX] at hv' ⊢
+    simp only [h₀] at hv' ⊢
+    by_cases ht : Even t
+    case neg =>
+      rw [if_neg ht] at hv' ⊢
+      by_cases hM : M.Nonempty
+      case pos => simp [dif_pos hM] at hv'
+      case neg => simp [dif_neg hM, hjX]
+    case pos =>
+      clear hv'
+      rw [if_pos ht]
+      simp only [ColourState.black.injEq, exists_eq_right_right', Finset.mem_sdiff, hjX,
+        Finset.mem_map, Finset.mem_filter, Finset.mem_univ, true_and, Fin.valEmbedding_apply,
+        not_exists, not_and, exists_and_left, exists_eq', and_true, Fin.val_eq_val]
+      rintro j hj rfl
+      simp only [messageRecd_even_black N f hf _ t ht rfl v hv j, hvj] at hj
+      split at hj
+      case h_1 => simp [ite_eq_iff] at hj
+      case h_2 h => exact h₂' _ h
+      case h_3 => cases hj
+      case h_4 => cases hj
+
 lemma invariant (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid _ N)
     (u v : V) (hu : f u = false) (hv : f v = true)
     (i : Fin (N.degree u)) (hui : N.ofPort u i = v) (j : Fin (N.degree v)) (hvj : N.ofPort v j = u)
@@ -1351,7 +1458,7 @@ lemma invariant (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid _ N)
   | .US => cases h₂ h₃
   | .MS k => cases h₁ ⟨_, h₃⟩
   | .UR =>
-      have h₇ : (N.reversePort v j : ℕ) = (i : ℕ) := reversePort_of_ofPort _ _ _ hvj hui
+      have h₇ : (N.reversePort v j : ℕ) = (i : ℕ) := reversePort_of_ofPort _ hvj hui
       have := messageRecd_even_black N f hf _ (2 * i) (by simp) rfl v hv j
       simp only [hvj, h₃, OfNat.ofNat_ne_zero, not_false_eq_true, mul_div_cancel_left₀,
         ne_eq, if_pos h₇] at this
@@ -1380,6 +1487,41 @@ lemma invariant (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid _ N)
       left
       intro
       use j
+
+/-- If a black node reaches US on time t+1, then its X must have been empty at time t.  -/
+lemma black_US_empty_X (f : V → Bool) (t : ℕ) (v : V) (hv : f v = true)
+    (h : (maximalMatching.rounds N f t v).2.2 = .US) :
+    (maximalMatching.rounds N f t v).2.1 = .black ∅ ∅ := by
+  induction t
+  case zero =>
+    simpa [Algorithm.rounds_zero, initialVector_2_1, hv, initialVector_2_2] using h
+  case succ t ih =>
+    match h₁ : (maximalMatching.rounds N f t v).2.2 with
+    | .US =>
+        obtain hM := ih h₁
+        rw [Algorithm.rounds_succ, Algorithm.nextVector_stopped, hM]
+        simp [h₁]
+    | .MS k => simp only [nextVector_MS N v k (Algorithm.rounds_succ _ _) h₁] at h
+    | .MR k => cases black_not_MR N f v hv _ _ rfl ⟨_, h₁⟩
+    | .UR =>
+        clear ih
+        obtain ⟨M, X, hMX⟩ := remains_black N f t v hv
+        have ht : ¬ Even (maximalMatching.rounds N f t v).1 := by
+          intro ht
+          simp only [nextVector_black_UR_even N v (Algorithm.rounds_succ _ _) ht hMX h₁] at h
+        have hM : ¬M.Nonempty := by
+          intro hM
+          simp only [nextVector_black_UR_odd_nonemptyM N v (Algorithm.rounds_succ _ _) ht hMX
+            h₁ hM] at h
+        have hX : ¬X.Nonempty := by
+          intro hX
+          rw [nextVector_black_UR_odd_nonemptyX N v (Algorithm.rounds_succ _ _) ht hMX
+            h₁ hM hX] at h
+          simp at h
+        rw [Algorithm.rounds_succ, Algorithm.nextVector,
+          Algorithm.fullReceive_not_stoppingState _ (by simp [h₁]),
+          maximalMatching_receive, if_neg ht, hMX]
+        simp [h₁, hM, ←Finset.not_nonempty_iff_eq_empty, hX]
 
 lemma black_stops [Fintype V] [DecidableRel N.Adj]
     (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid _ N)
@@ -1495,28 +1637,398 @@ lemma Option.getM_set_iff {x : α} {y : Option α} : x ∈ (y.getM : Set α) ↔
   case h_1 => simp
   case h_2 => simp [Eq.comm]
 
+lemma outputAt_eq_some_iff {f : V → Bool} {t : ℕ} {h : maximalMatching.stoppedBy N f t} {v : V}
+    {i : ℕ} :
+    maximalMatching.outputAt N f t h v = some i ↔ (maximalMatching.rounds N f t v).2.2 = .MS i := by
+  specialize h v
+  change Option.get _ h = _ ↔ _
+  match h' : (maximalMatching.rounds N f t v).2.2 with
+    | .MR j | .UR => simp [mem_stoppingStates_iff, h'] at h
+    | .US => simp [h']
+    | .MS j => simp [h']
+
+lemma outputAt_eq_none_iff {f : V → Bool} {t : ℕ} {h : maximalMatching.stoppedBy N f t} {v : V} :
+    maximalMatching.outputAt N f t h v = none ↔ (maximalMatching.rounds N f t v).2.2 = .US := by
+  specialize h v
+  change Option.get _ h = _ ↔ _
+  match h' : (maximalMatching.rounds N f t v).2.2 with
+    | .MR j | .UR => simp [mem_stoppingStates_iff, h'] at h
+    | .US => simp [h']
+    | .MS j => simp [h']
+
+theorem same_matches_wb (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ)
+    (u v : V) (i : Fin (N.degree u)) (j : Fin (N.degree v))
+    (hvj : N.ofPort v j = u) (hui : N.ofPort u i = v)
+    (hv : f v = false) (h : (maximalMatching.rounds N f t v).2.2 = EdgeState.MS j) :
+    (maximalMatching.rounds N f t u).2.2 = EdgeState.MS i := by
+  induction t with
+  | zero => simp [Algorithm.rounds_zero, initialVector_2_2, hv] at h
+  | succ t ih =>
+      match hv' : (maximalMatching.rounds N f t v).2.2 with
+      | .US =>
+          rw [nextVector_US N _ (Algorithm.rounds_succ _ _) hv'] at h
+          cases h
+      | .MS j' =>
+          rw [nextVector_MS N _ _ (Algorithm.rounds_succ _ _) hv'] at h
+          cases h
+          rw [nextVector_MS N _ _ (Algorithm.rounds_succ _ _) (ih hv')]
+      | .UR =>
+          by_cases Even (maximalMatching.rounds N f t v).1
+          case pos h' =>
+            rw [nextVector_white_UR_even N _ (Algorithm.rounds_succ _ _) h'
+              (remains_white _ _ _ _ hv) hv'] at h
+            aesop
+          case neg h' =>
+            have := nextVector_white_UR_odd N _ (Algorithm.rounds_succ _ _) h'
+              (remains_white _ _ _ _ hv) hv'
+            aesop
+      | .MR j' =>
+          have : Even (maximalMatching.rounds N f t v).1 ∧ j = j' := by
+            rw [nextVector_white_MR N v _ (Algorithm.rounds_succ _ _)
+              (remains_white _ _ _ _ hv) hv'] at h
+            aesop
+          obtain ⟨ht, rfl⟩ := this
+          cases t
+          case zero =>
+            simp [Algorithm.rounds_zero, initialVector_2_2] at hv'
+            aesop
+          rename_i t
+          rw [maximalMatching_round_count] at ht
+          case h =>
+            rw [not_mem_stoppingStates_iff, hv']
+            simp
+          simp only [Nat.even_add_one] at ht
+          have hv'' := prevVector_MR N f v t hv'
+          have hu : f u = true := by simpa [hv] using hf v u (hvj ▸ N.ofPort_adj _)
+          have h₂ : maximalMatching.rounds N f t v ∉ maximalMatching.stoppingStates := by
+            rw [not_mem_stoppingStates_iff, hv'']
+            simp
+          rw [maximalMatching.rounds_succ, Algorithm.nextVector,
+            Algorithm.fullReceive_not_stoppingState _ h₂, maximalMatching_receive,
+            maximalMatching_round_count N f t v h₂, if_neg ht, remains_white N f t v hv] at hv'
+          simp only [hv''] at hv'
+          split at hv'
+          case isFalse => cases hv'
+          case isTrue h₃ =>
+            simp only [EdgeState.MR.injEq, Fin.val_eq_val] at hv'
+            have h₄ : j ∈ Finset.univ.filter
+                fun x => maximalMatching.messageRecd N (maximalMatching.rounds N f t) v x =
+                  Msg.Accept := by
+              rw [←hv']
+              exact Finset.min'_mem _ _
+            simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h₄
+            have h₅ : (maximalMatching.rounds N f t u).2.2 = .UR := by
+              rw [messageRecd_odd_white N f hf _ _ ht rfl _ hv] at h₄
+              split at h₄
+              case h_1 h => rwa [hvj] at h
+              case h_2 => cases h₄
+              case h_3 => cases h₄
+              case h_4 => cases h₄
+            obtain ⟨M, X, hMX⟩ := remains_black N f t u hu
+            simp only [messageRecd_odd_white N f hf _ _ ht rfl _ hv, hvj, h₅, hMX] at h₄
+            simp only [ite_eq_left_iff, not_exists, imp_false, not_forall, Decidable.not_not] at h₄
+            obtain ⟨hM, hi⟩ := h₄
+            rw [reversePort_of_ofPort _ hvj hui] at hi
+            have h₇ : maximalMatching.rounds N f t u ∉ maximalMatching.stoppingStates := by
+              rw [not_mem_stoppingStates_iff, h₅]
+              simp
+            have' h₆ := nextVector_black_UR_odd_nonemptyM N u (Algorithm.rounds_succ _ _)
+              (by rwa [maximalMatching_round_count _ _ _ _ h₇]) hMX h₅ hM
+            rw [←hi] at h₆
+            rw [nextVector_MS N u _ (Algorithm.rounds_succ _ _) h₆]
+
+theorem same_matches_bw_aux (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ)
+    (u v : V) (i : Fin (N.degree u)) (j : Fin (N.degree v))
+    (hvj : N.ofPort v j = u) (hui : N.ofPort u i = v)
+    (hv : f v = false)
+    (h : (maximalMatching.rounds N f t u).2.2 = EdgeState.MS i) :
+    (maximalMatching.rounds N f t v).2.2 = EdgeState.MR j ∨
+    (maximalMatching.rounds N f t v).2.2 = EdgeState.MS j := by
+  have hu : f u = true := by simpa [hv] using hf v u (hvj ▸ N.ofPort_adj _)
+  induction t with
+  | zero =>
+      simp [Algorithm.rounds_zero, initialVector_2_2, hu, ite_eq_iff] at h
+  | succ t ih =>
+       match hv' : (maximalMatching.rounds N f t u).2.2 with
+       | .US => simp [nextVector_US N _ (Algorithm.rounds_succ _ _) hv'] at h
+       | .MR i' => cases black_not_MR N f u hu t _ rfl ⟨_, hv'⟩
+       | .MS i' =>
+            simp only [nextVector_MS N _ _ (Algorithm.rounds_succ _ _) hv'] at h
+            cases h
+            cases ih hv' with
+            | inl h =>
+                rw [nextVector_white_MR N v _ (Algorithm.rounds_succ _ _)
+                  (remains_white _ _ _ _ hv) h]
+                simp [em']
+            | inr h =>
+                right
+                rw [nextVector_MS N v _ (Algorithm.rounds_succ _ _) h]
+       | .UR =>
+            have h₁ : maximalMatching.rounds N f t u ∉ maximalMatching.stoppingStates := by
+              simp [not_mem_stoppingStates_iff, hv']
+            obtain ⟨M, X, hM⟩ := remains_black N f t u hu
+            rw [maximalMatching.rounds_succ, Algorithm.nextVector,
+              Algorithm.fullReceive_not_stoppingState _ h₁, maximalMatching_receive,
+              maximalMatching_round_count _ _ _ _ h₁, hM] at h
+            simp only [hv'] at h
+            have h₂ : ¬ Even t := by
+              intro h₂
+              rw [if_pos h₂] at h
+              simp only at h
+            have h₃ : M.Nonempty := by
+              by_contra! h₃
+              rw [if_neg h₂, dif_neg h₃] at h
+              dsimp at h
+              simp [ite_eq_iff] at h
+            simp only [if_neg h₂, dif_pos h₃, EdgeState.MS.injEq] at h
+            cases t
+            case zero => simp at h₂
+            rename_i t
+            simp only [Nat.even_add_one, Decidable.not_not] at h₂
+            have h₅ := prevVector_UR N f u _ hv'
+            obtain ⟨X', hX'⟩ := black_UR_even_has_M_empty N f u hu t h₂ _ rfl h₅
+            have h₄ : maximalMatching.rounds N f t u ∉ maximalMatching.stoppingStates := by
+              simp [h₅]
+            have hMX' := hM
+            rw [maximalMatching.rounds_succ, Algorithm.nextVector,
+              Algorithm.fullReceive_not_stoppingState _ h₄, maximalMatching_receive,
+              maximalMatching_round_count _ _ _ _ h₄, if_pos h₂, hX'] at hM
+            simp only [h₅, Finset.empty_union] at hM
+            simp only [ColourState.black.injEq] at hM
+            replace hM := hM.1
+            have h₆ : Fin.valEmbedding i ∈ M := by
+              simp only [Fin.valEmbedding_apply]
+              rw [←h]
+              exact Finset.min'_mem _ _
+            have h₈ := h₆
+            simp only [Finset.mem_map', Finset.mem_filter, Finset.mem_univ, true_and, ←hM] at h₆
+            have h₇ : (maximalMatching.rounds N f t v).2.2 = .UR := by
+              rw [messageRecd_even_black N f hf _ t h₂ rfl u hu i] at h₆
+              simp only [hui] at h₆
+              split at h₆
+              case h_1 => assumption
+              case h_2 => cases h₆
+              case h_3 => cases h₆
+              case h_4 => cases h₆
+            obtain ⟨M', X', heq, hMX''⟩ := black_UR_odd_M_value N f hf u hu (t + 1)
+              (by simp [parity_simps, *]) _ rfl hv'
+            simp only [add_tsub_cancel_right] at hMX''
+            simp only [hMX'] at heq
+            cases heq
+            have h₉ : (j : ℕ) = t / 2 := by
+              have := hMX'' h₈
+              simp only [Finset.mem_map', Finset.mem_filter, Finset.mem_univ, true_and] at this
+              rw [reversePort_of_ofPort _ hui hvj] at this
+              exact this
+            have h₁₀ : (maximalMatching.rounds N f (t + 1) v).2.2 = .UR := by
+              have : (maximalMatching.rounds N f t v).1 = t := by
+                rw [maximalMatching_round_count]
+                simp [h₇]
+              rw [nextVector_white_UR_even N v (Algorithm.rounds_succ _ _) (this.symm ▸ h₂)
+                (remains_white _ _ _ _ hv) h₇, this, ←h₉, if_pos]
+              exact Fin.isLt _
+            have h₁₁ := messageRecd_odd_white N f hf _ (t + 1) (by simp [parity_simps, *]) rfl v
+              hv j
+            simp only [hvj, hv', hMX', h₃, exists_true_left, reversePort_of_ofPort _ hvj hui, h,
+              reduceIte] at h₁₁
+            have : ∃ j', (maximalMatching.rounds N f (t + 2) v).2.2 = .MR j' := by
+              have : maximalMatching.rounds N f (t + 1) v ∉ maximalMatching.stoppingStates := by
+                rw [not_mem_stoppingStates_iff, h₁₀]
+                simp
+              rw [Algorithm.rounds_succ, Algorithm.nextVector,
+                Algorithm.fullReceive_not_stoppingState _ this, maximalMatching_receive,
+                maximalMatching_round_count _ _ _ _ this, if_neg (by simp [parity_simps, *]),
+                remains_white _ _ _ _ hv]
+              simp only [h₁₀]
+              rw [dif_pos ⟨j, by simp [h₁₁]⟩]
+              simp
+            obtain ⟨j', hj'⟩ := this
+            have := white_even_MR_val N f hf v hv (t + 2) j' _ rfl hj'
+            simp only [Nat.ofNat_pos, Nat.add_div_right, Nat.succ_eq_add_one,
+              add_tsub_cancel_right] at this
+            left
+            rw [hj', this.1, h₉]
+
+theorem same_matches_bw (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ) (ht : maximalMatching.stoppedBy N f t)
+    (u v : V) (i : Fin (N.degree u)) (j : Fin (N.degree v))
+    (hvj : N.ofPort v j = u) (hui : N.ofPort u i = v)
+    (hv : f v = false)
+    (h : (maximalMatching.rounds N f t u).2.2 = EdgeState.MS i) :
+    (maximalMatching.rounds N f t v).2.2 = EdgeState.MS j := by
+  refine (same_matches_bw_aux N f hf t u v i j hvj hui hv h).resolve_left ?_
+  intro h'
+  simpa [mem_stoppingStates_iff, h'] using ht v
+
+theorem same_matches (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ) (h : maximalMatching.stoppedBy N f t)
+    (u v : V) (i : Fin (N.degree u)) (j : Fin (N.degree v))
+    (hvj : N.ofPort v j = u) (hui : N.ofPort u i = v)
+    (hv : f v = false) :
+    (maximalMatching.rounds N f t v).2.2 = EdgeState.MS j ↔
+      (maximalMatching.rounds N f t u).2.2 = EdgeState.MS i :=
+  ⟨same_matches_wb _ _ hf _ _ _ _ _ hvj hui hv,
+   same_matches_bw _ _ hf _ h _ _ _ _ hvj hui hv⟩
+
 lemma encodes_matching (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ)
     (h : maximalMatching.stoppedBy N f t) :
-    maximalMatching.outputAt N f t h ∈ Matching.valid V N := by
-  dsimp [Matching, EdgeSubset]
+    maximalMatching.outputAt N f t h ∈ Problem.Matching.valid V N := by
+  dsimp [Problem.Matching, Problem.EdgeSubset]
   intro v
   constructor
   case left =>
     intro i hi
     have : (maximalMatching.rounds N f t v).2.2 = .MS i := by
       simp only [Option.getM_set_iff, Option.mem_def] at hi
-      rw [Algorithm.outputAt, Algorithm.outputs, Algorithm.getOutput] at hi
-      specialize h v
-      change Option.get _ h = _ at hi
-      match h' : (maximalMatching.rounds N f t v).2.2 with
-      | .MR j | .UR =>
-          rw [mem_stoppingStates_iff, h'] at h
-          simp at h
-      | .MS j => simpa [h'] using hi
-      | .US => simp [h'] at hi
+      rw [outputAt_eq_some_iff] at hi
+      exact hi
     exact MS_bound N f hf _ _ _ _ rfl this
   case right =>
-    sorry
+    intro j
+    simp only [Option.getM_set_iff, Option.mem_def, outputAt_eq_some_iff]
+    set u : V := N.ofPort v j
+    set i : Fin (N.degree u) := N.reversePort v j
+    have hui : N.ofPort u i = v := by simp [u, i]
+    change (maximalMatching.rounds _ _ _ v).2.2 = _ ↔
+           (maximalMatching.rounds _ _ _ u).2.2 = _
+    wlog hv : f v = false generalizing u v
+    case inr =>
+      have hu : f u = false := by simpa [u, hv] using hf v u (N.ofPort_adj _)
+      rw [this u i (by simp) hu, reversePort_of_ofPort _ hui rfl, hui]
+    exact same_matches N f hf _ h _ _ _ _ rfl hui hv
+
+theorem adj_not_US (f : V → Bool)
+    (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ)
+    (u v : V) (i : Fin (N.degree u)) (j : Fin (N.degree v))
+    (hvj : N.ofPort v j = u) (hui : N.ofPort u i = v)
+    (hv : f v = false)
+    (hun : (maximalMatching.rounds N f t u).2.2 = .US)
+    (hvn : (maximalMatching.rounds N f t v).2.2 = .US) : False := by
+  have hu : f u = true := by simpa [hv] using hf v u (hvj ▸ N.ofPort_adj _)
+  have ht : 2 * N.degree v < t := lt_of_not_le fun h => white_not_US N f v hv t h hvn
+  match h₁ : (maximalMatching.rounds N f (2 * j + 1) u).2.2 with
+    | .MR _ => exact black_not_MR N f u hu (2 * j + 1) _ rfl ⟨_, h₁⟩
+    | .MS _ =>
+        have : 2 * j + 1 ≤ t := by omega
+        rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f this u (by simp [h₁]), hun] at h₁
+        simp at h₁
+    | .US =>
+        have : ∃ k < 2 * (j : ℕ) + 1, (maximalMatching.rounds N f k u).2.2 = .UR ∧
+            (maximalMatching.rounds N f (k + 1) u).2.2 = .US := by
+          let k := Nat.findGreatest (fun z => (maximalMatching.rounds N f z u).2.2 = .UR) (2 * j)
+          have hk : (maximalMatching.rounds N f k u).2.2 = .UR := by
+            refine Nat.findGreatest_spec (P := fun z => (maximalMatching.rounds N f z u).2.2 = .UR)
+              (Nat.zero_le _) ?_
+            simp only [Algorithm.rounds_zero, initialVector_2_2, hu, true_and, ite_eq_right_iff,
+              imp_false, ← pos_iff_ne_zero]
+            rw [N.degree_pos_iff_exists_adj]
+            exact ⟨N.ofPort u i, by simp⟩
+          have : k ≤ 2 * j := Nat.findGreatest_le _
+          refine ⟨k, by omega, hk, ?_⟩
+          match h₂ : (maximalMatching.rounds N f (k + 1) u).2.2 with
+          | .US => rfl
+          | .MR _ => cases black_not_MR N f u hu (k + 1) _ rfl ⟨_, h₂⟩
+          | .MS _ =>
+              rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f
+                (show k + 1 ≤ 2 * j + 1 by omega) u (by simp [h₂]), h₁] at h₂
+              cases h₂
+          | .UR =>
+              cases lt_or_eq_of_le this
+              case inr h => rw [←h₂, h, h₁]
+              case inl h => cases Nat.findGreatest_is_greatest (Nat.lt_succ_self k) (by omega) h₂
+        obtain ⟨k, hk, h₂, h₃⟩ := this
+        have h₄ := black_US_empty_X N f (k + 1) u hu h₃
+        have h₅ : (maximalMatching.rounds N f k u).2.1 = .black ∅ ∅ := by
+          obtain ⟨M, X, hMX⟩ := remains_black N f k u hu
+          have ht : ¬ Even (maximalMatching.rounds N f k u).1 := by
+            intro hk'
+            simp only [nextVector_black_UR_even N u (Algorithm.rounds_succ _ _) hk' hMX h₂] at h₃
+          have hM : ¬M.Nonempty := by
+            intro hM
+            simp only [nextVector_black_UR_odd_nonemptyM N u (Algorithm.rounds_succ _ _) ht hMX
+              h₂ hM] at h₃
+          have hX : ¬X.Nonempty := by
+            intro hX
+            rw [nextVector_black_UR_odd_nonemptyX N u (Algorithm.rounds_succ _ _) ht hMX
+              h₂ hM hX] at h₃
+            simp at h₃
+          simp only [Finset.not_nonempty_iff_eq_empty] at hM hX
+          rw [hMX, hM, hX]
+        have : k < t := by omega
+        have h₆ : ∀ (i : ℕ), (maximalMatching.rounds N f k v).2.2 ≠ EdgeState.MS i := by
+          intro i hi
+          rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f this.le v (by simp [hi]),
+            hvn] at hi
+          cases hi
+        have h₇ : ∀ (i : ℕ), (maximalMatching.rounds N f k v).2.2 ≠ EdgeState.MR i := by
+          intro i hi
+          have hk : Even k := by
+            by_contra hk
+            exact white_odd_not_MR N f v hv _ hk _ rfl ⟨_, hi⟩
+          have : (maximalMatching.rounds N f (k + 1) v).2.2 = EdgeState.MS i := by
+            rw [nextVector_white_MR N v _ (Algorithm.rounds_succ _ _) (remains_white _ _ _ _ hv)
+              hi, if_pos]
+            rwa [maximalMatching_round_count _ _ _ _ (by simp [hi])]
+          rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f (show k + 1 ≤ t by omega) v
+            (by simp [this]), hvn] at this
+          cases this
+        obtain ⟨M, X, hM, hMX⟩ := not_send_on_no_match N f hf v u hv hu i hui k h₂ h₆ h₇
+        rw [hMX] at h₅
+        cases h₅
+        simp at hM
+    | .UR =>
+        obtain ⟨M, X, hMX', hMX⟩ := invariant N f hf v u hv hu j hvj i hui h₁
+        have h₂ : ∀ i : ℕ, (maximalMatching.rounds N f (2 * j + 1) v).2.2 ≠ .MS i := by
+          intro i hi
+          rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f (show 2 * j + 1 ≤ t by omega) v
+            (by simp [hi]), hvn] at hi
+          cases hi
+        have h₃ : ∀ i : ℕ, (maximalMatching.rounds N f (2 * j + 1) v).2.2 ≠ .MR i := by
+          intro i hi
+          exact white_odd_not_MR N f v hv _ (by simp [parity_simps]) _ rfl ⟨_, hi⟩
+        obtain ⟨M', X', hM, hMX''⟩ :=
+          not_send_on_no_match N f hf v u hv hu i hui (2 * j + 1) h₁ h₂ h₃
+        rw [hMX''] at hMX
+        cases hMX
+        replace hMX' := hMX'.resolve_left (by simp [hM])
+        have h₄ : ¬Even (maximalMatching.rounds N f (2 * ↑j + 1) u).1 := by
+          rw [maximalMatching_round_count _ _ _ _ (by simp [h₁])]
+          simp [parity_simps]
+        have h₅ := nextVector_black_UR_odd_nonemptyM N u (Algorithm.rounds_succ _ _) h₄ hMX''
+          h₁ hMX'
+        have h₆ : 2 * j + 1 + 1 ≤ t := by omega
+        rw [maximalMatching.rounds_eq_of_mem_stoppingStates N f h₆ u (by simp [h₅]), hun] at h₅
+        cases h₅
+
+lemma encodes_maximal_matching (f : V → Bool) (hf : f ∈ (Problem.Colouring Bool).valid V N) (t : ℕ)
+    (h : maximalMatching.stoppedBy N f t) :
+    maximalMatching.outputAt N f t h ∈ Problem.MaximalMatching.valid V N := by
+  simp only [Problem.MaximalMatching, Set.mem_inter_iff, encodes_matching N f hf _ h, true_and,
+    Set.mem_setOf_eq, ne_eq, outputAt_eq_none_iff]
+  intro v hv j hj
+  set u : V := N.ofPort v j
+  set i : Fin (N.degree u) := N.reversePort v j
+  have hui : N.ofPort u i = v := by simp [u, i]
+  wlog hv' : f v = false generalizing u v
+  case inr =>
+    have hu : f u = false := by simpa [u, hv'] using hf v u (N.ofPort_adj _)
+    exact this u hj i (by simp [*]) (by simp) hu
+  exact adj_not_US N f hf _ _ _ _ _ rfl hui hv' hj hv
+
+open scoped Classical
+
+/--
+The maximal matching algorithm solves the maximal matching problem given a 2-colouring as input on
+all graphs in time 2Δ+1.
+-/
+theorem maximalMatching_solvesProblemInTime :
+    solvesProblemInTime maximalMatching (fun _ => Set.univ)
+      (Problem.Colouring Bool)
+      Problem.MaximalMatching
+      (fun G => 2 * G.maxDegree + 1) := fun N f _ hf =>
+  ⟨2 * N.maxDegree + 1, stoppedBy N f hf, le_rfl, encodes_maximal_matching _ _ hf _ _⟩
 
 end MaximalBipartiteMatching
 
