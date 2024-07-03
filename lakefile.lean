@@ -5,7 +5,9 @@ package «DGAlgorithms» where
   -- Settings applied to both builds and interactive editing
   leanOptions := #[
     ⟨`pp.unicode.fun, true⟩, -- pretty-prints `fun a ↦ b`
-    ⟨`pp.proofs.withType, false⟩
+    ⟨`pp.proofs.withType, false⟩,
+    ⟨`autoImplicit, false⟩,
+    ⟨`relaxedAutoImplicit, false⟩
   ]
   -- add any additional package configuration options here
 
