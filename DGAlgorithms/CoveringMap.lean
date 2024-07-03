@@ -16,7 +16,6 @@ structure CoveringMap
     (N'.reversePort (toFun u) i : ℕ) = N.reversePort u (Fin.cast (degree_map' _) i))
   (label_map' : ∀ v : V, f' (toFun v) = f v)
 
-
 instance {N : NonSimplePortNumbered V} {N' : NonSimplePortNumbered V'} {f : V → I} {f' : V' → I} :
     FunLike (CoveringMap N N' f f') V V' :=
   ⟨CoveringMap.toFun, CoveringMap.ext⟩
@@ -173,7 +172,6 @@ lemma outputAt_eq {t₁ t₂ : ℕ} (ht₁ : A.stoppedBy N f t₁) (ht₂ : A.st
 end Execution
 
 end CoveringMap
-
 
 section Cycle
 

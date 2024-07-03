@@ -405,7 +405,7 @@ instance [DecidableEq V] : DecidableRel N.Adj := fun v w =>
   decidable_of_decidable_of_eq (p := Exists _) (congrArg (· v w) N.adj_eq)
 
 /-- We ensure that the degree that's a field of NonSimplePortNumbered is the simp normal form. -/
-@[simp] lemma degree_eq (v : V) [Fintype (N.neighborSet v)] :
+@[simp] lemma degree_eq {V : Type*} {N : PortNumbered V} (v : V) [Fintype (N.neighborSet v)] :
     (N : SimpleGraph V).degree v = N.degree v := by
   classical
   rw [←SimpleGraph.card_neighborSet_eq_degree, Fintype.card_congr (N.numbering v).symm]
@@ -416,6 +416,13 @@ lemma degree_iso {V V' : Type*} (G : SimpleGraph V) (G' : SimpleGraph V') (e : G
     G.degree v = G'.degree (e v) := by
   rw [←SimpleGraph.card_neighborSet_eq_degree, ←SimpleGraph.card_neighborSet_eq_degree]
   exact Fintype.card_congr (e.mapNeighborSet v)
+
+-- NOTE: when the fix to maxDegree hits mathlib, the assumptions here should change.
+nonrec lemma degree_le_maxDegree {V : Type*} [Fintype V] {N : PortNumbered V}
+    [DecidableRel N.Adj] (v : V) :
+    N.degree v ≤ N.maxDegree := by
+  rw [←N.degree_eq]
+  convert N.degree_le_maxDegree v
 
 /--
 If N is a port numbered network whose underlying graph is isomorphic to G', we can construct a
@@ -447,8 +454,6 @@ def inducing {V : Type*} [Fintype V] [DecidableEq V] (G : SimpleGraph V) [Decida
 lemma self_induce {V : Type*} [Fintype V] [DecidableEq V] (N : PortNumbered V) :
     fromSimpleGraph N.toSimpleGraph (fun v ↦ (N : SimpleGraph V).degree v)
       (fun v => (finCongr (by simp)).trans (N.numbering v)) = N := by ext <;> simp
-
-#check Fintype.piFinset_univ
 
 lemma mem_inducing {V : Type*} [Fintype V] [DecidableEq V] {G : SimpleGraph V} [DecidableRel G.Adj]
     {N : PortNumbered V} :

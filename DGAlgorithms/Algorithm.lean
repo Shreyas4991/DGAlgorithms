@@ -83,7 +83,7 @@ Given an input vector, `rounds f n` gives the state of each node after n communi
 def rounds : ℕ → V → S := fun T =>
   T.iterate (A.nextVector N) (A.initialVector N f)
 
-lemma rounds_succ : A.rounds N f (T + 1) = A.nextVector N (A.rounds N f T) :=
+lemma rounds_succ {t : ℕ} : A.rounds N f (t + 1) = A.nextVector N (A.rounds N f t) :=
   Function.iterate_succ_apply' _ _ _
 
 lemma rounds_zero : A.rounds N f 0 = A.initialVector N f := rfl
@@ -180,7 +180,7 @@ lemma immediatelyStopping_isStopped {f : S → O} {init : ℕ → I → S}
     (immediatelyStopping f init send).isStopped curr := fun _ => rfl
 
 lemma immediatelyStopping_stoppedBy_zero {f : S → O} {init : ℕ → I → S}
-    {send : (d : ℕ) → S → Fin d → M} {t : ℕ} :
+    {send : (d : ℕ) → S → Fin d → M} {g : V → I} {t : ℕ} :
     (immediatelyStopping f init send).stoppedBy N g t := immediatelyStopping_isStopped _
 
 lemma immediatelyStopping_output {f : S → O} {init : ℕ → I → S}
@@ -216,6 +216,11 @@ lemma coe_subtypeMk_outputs_apply {O} [DecidablePred (· ∈ O)]
   rw [outputs, coe_subtypeMk_getOutput_apply]
 
 end Algorithm
+
+section solve
+
+universe u
+variable {I S M O : Type*}
 
 /--
 We say algorithm A solves problem `out` on graph family `family` given `inp` in time `T` if for
@@ -255,8 +260,13 @@ def solvesProblem (A : Algorithm I S M O) (family : (V : Type u) → Set (Simple
     ∃ (t : ℕ) (h : A.stoppedBy N f t),
       A.outputAt N f t h ∈ out.valid V N
 
-lemma solvesProblemInTime.solvesProblem (h : solvesProblemInTime A family inp out T) :
+lemma solvesProblemInTime.solvesProblem {A : Algorithm I S M O}
+    {family : (V : Type u) → Set (SimpleGraph V)}
+    {inp : Problem I} {out : Problem O} {T : {V : Type u} → [Fintype V] → SimpleGraph V → ℕ}
+    (h : solvesProblemInTime A family inp out T) :
     solvesProblem A family inp out := by
   intro V _ N f hf hV
   obtain ⟨t, ht, -, ht'⟩ := h N f hf hV
   exact ⟨t, ht, ht'⟩
+
+end solve

@@ -63,7 +63,7 @@ lemma cycleGraph_adj_iff :
   | 1, x, y => by simp
   | n + 2, x, y => by simp only [cycleGraph_adj_iff', Fin.val_eq_one_iff]
 
-lemma cycleGraph_adj_iff_exists {i j : Fin (n + 2)} :
+lemma cycleGraph_adj_iff_exists {n : ℕ} {i j : Fin (n + 2)} :
     (cycleGraph (n + 2)).Adj i j ↔ ∃ k : Fin (n + 2), s(i, j) = s(k, k + 1) := by
   rw [cycleGraph_adj_iff', sub_eq_iff_eq_add', sub_eq_iff_eq_add']
   simp [exists_or, or_comm]
@@ -100,7 +100,7 @@ lemma cycleGraph_degree_two_le {n : ℕ} {v : Fin (n + 2)} :
     Finset.coe_inj.1 <| by simp [cycleGraph_neighborSet]
   simp [degree, this]
 
-lemma neighbours_diff {v : Fin (n + 3)} :
+lemma neighbours_diff {n : ℕ} {v : Fin (n + 3)} :
     v - 1 ≠ v + 1 := by
   rw [ne_eq, sub_eq_iff_eq_add, add_assoc v, self_eq_add_right]
   exact Nat.not_dvd_of_pos_of_lt (by simp) (by simp) ∘ Fin.natCast_eq_zero.1
@@ -110,21 +110,21 @@ lemma cycleGraph_degree_three_le {n : ℕ} {v : Fin (n + 3)} :
   rw [cycleGraph_degree_two_le, Finset.card_pair]
   exact neighbours_diff
 
-@[simp] lemma cycleGraph_adj_castSucc_succ {i : Fin n} :
+@[simp] lemma cycleGraph_adj_castSucc_succ {n : ℕ} {i : Fin n} :
     (cycleGraph (n + 1)).Adj i.castSucc i.succ := by
   rw [cycleGraph_adj_iff]
   right
   rw [Fin.coe_sub_iff_le.2, Fin.val_succ, Fin.coe_castSucc, add_tsub_cancel_left]
   exact (Fin.castSucc_lt_succ _).le
 
-@[simp] lemma cycleGraph_adj_succ_castSucc {i : Fin n} :
+@[simp] lemma cycleGraph_adj_succ_castSucc {n : ℕ} {i : Fin n} :
     (cycleGraph (n + 1)).Adj i.succ i.castSucc :=
   cycleGraph_adj_castSucc_succ.symm
 
-@[simp] lemma cycleGraph_adj_zero_last : (cycleGraph (n + 2)).Adj 0 (Fin.last (n + 1)) := by
+@[simp] lemma cycleGraph_adj_zero_last {n : ℕ} : (cycleGraph (n + 2)).Adj 0 (Fin.last (n + 1)) := by
   simp [cycleGraph_adj_iff']
 
-@[simp] lemma cycleGraph_adj_last_zero : (cycleGraph (n + 2)).Adj (Fin.last (n + 1)) 0 := by
+@[simp] lemma cycleGraph_adj_last_zero {n : ℕ} : (cycleGraph (n + 2)).Adj (Fin.last (n + 1)) 0 := by
   simp [cycleGraph_adj_iff']
 
 lemma pathGraph_le_cycleGraph {n : ℕ} : pathGraph n ≤ cycleGraph n := by
@@ -138,7 +138,7 @@ lemma pathGraph_le_cycleGraph {n : ℕ} : pathGraph n ≤ cycleGraph n := by
       case inl => exact cycleGraph_adj_castSucc_succ
       case inr => exact cycleGraph_adj_castSucc_succ.symm
 
-lemma le_iff {G H : SimpleGraph V} : G ≤ H ↔ ∀ x y, G.Adj x y → H.Adj x y := Iff.rfl
+lemma le_iff {V : Type*} {G H : SimpleGraph V} : G ≤ H ↔ ∀ x y, G.Adj x y → H.Adj x y := Iff.rfl
 
 lemma pathGraph_sup_edge_le_cycleGraph {n : ℕ} :
     pathGraph (n + 1) ⊔ fromEdgeSet {s(0, Fin.last n)} ≤ cycleGraph (n + 1) := by

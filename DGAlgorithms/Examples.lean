@@ -64,8 +64,6 @@ def eg3_1' : PortNumbered (Fin 4) :=
 
 end NonSimplePortNumbered
 
--- #check SimpleGraph.Box
-
 abbrev graph7_8t : Type := Option (Fin 3 × (Unit ⊕ Bool ⊕ Bool))
 
 def graph7_8_adj : graph7_8t → graph7_8t → Bool
@@ -91,4 +89,34 @@ def graph7_8 : SimpleGraph graph7_8t where
 
 instance : DecidableRel graph7_8.Adj := fun v w => inferInstanceAs (Decidable (graph7_8_adj v w))
 
--- #eval (PortNumbered.inducing graph7_8).card
+def exampleGraph_adj : Fin 2 × Fin 4 → Fin 2 × Fin 4 → Bool
+  | ⟨0, 0⟩, i => i = (1, 0) ∨ i = (1, 2)
+  | ⟨0, 1⟩, i => i = (1, 0) ∨ i = (1, 1) ∨ i = (1, 3)
+  | ⟨0, 2⟩, i => i = (1, 2)
+  | ⟨0, 3⟩, i => i = (1, 2) ∨ i = (1, 3)
+  | ⟨1, 0⟩, i => i = (0, 0) ∨ i = (0, 1)
+  | ⟨1, 1⟩, i => i = (0, 1)
+  | ⟨1, 2⟩, i => i = (0, 0) ∨ i = (0, 2) ∨ i = (0, 3)
+  | ⟨1, 3⟩, i => i = (0, 1) ∨ i = (0, 3)
+
+def exampleGraph : SimpleGraph (Fin 2 × Fin 4) where
+  Adj v w := exampleGraph_adj v w
+  symm := (by decide : ∀ x, _)
+  loopless := (by decide : ∀ x, _)
+
+instance : DecidableRel exampleGraph.Adj := fun v w =>
+  inferInstanceAs (Decidable (exampleGraph_adj v w))
+
+def exampleNumbering :
+    (v : Fin 2 × Fin 4) → Fin (exampleGraph.degree v) → exampleGraph.neighborSet v
+  | ⟨0, 0⟩ => (![⟨(1, 0), rfl⟩, ⟨(1, 2), rfl⟩])
+  | ⟨0, 1⟩ => (![⟨(1, 0), rfl⟩, ⟨(1, 1), rfl⟩, ⟨(1, 3), rfl⟩])
+  | ⟨0, 2⟩ => (![⟨(1, 2), rfl⟩])
+  | ⟨0, 3⟩ => (![⟨(1, 2), rfl⟩, ⟨(1, 3), rfl⟩])
+  | ⟨1, 0⟩ => (![⟨(0, 1), rfl⟩, ⟨(0, 0), rfl⟩])
+  | ⟨1, 1⟩ => (![⟨(0, 1), rfl⟩])
+  | ⟨1, 2⟩ => (![⟨(0, 0), rfl⟩, ⟨(0, 2), rfl⟩, ⟨(0, 3), rfl⟩])
+  | ⟨1, 3⟩ => (![⟨(0, 1), rfl⟩, ⟨(0, 3), rfl⟩])
+
+def exampleNetwork' : PortNumbered (Fin 2 × Fin 4) :=
+  .fromSimpleGraph' exampleGraph (exampleGraph.degree ·) exampleNumbering (by decide) (fun _ => rfl)
