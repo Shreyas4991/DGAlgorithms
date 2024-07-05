@@ -1,9 +1,7 @@
-import DGAlgorithms.Models.Vector
 import Mathlib
 import Batteries
 import DGAlgorithms.Models.ListAPI
 
-open DG renaming Vector → Vec
 open SimpleGraph
 namespace DG
 
@@ -23,7 +21,7 @@ structure SimpleFinGraph where
   loopless : v ∉ adj v
 
 
-def ofSimpleGraph : SimpleFinGraph V := {
+def fromSimpleGraph : SimpleFinGraph V := {
   adj := fun v => {w | G.Adj v w}.toFinset,
   symm := by
     intro w v w_adj_v
@@ -39,6 +37,17 @@ def ofSimpleGraph : SimpleFinGraph V := {
     done
 }
 
+def toSimpleGraph (g : SimpleFinGraph V): SimpleGraph V := {
+  Adj := fun v w => v ∈ g.adj w,
+  symm := by
+    intro x y hadj
+    solve_by_elim [g.symm]
+    done
+  loopless := by
+    intro x
+    solve_by_elim [g.loopless]
+    done
+}
 
 def deg_v (g : SimpleFinGraph V) (v : V) : ℕ := (g.adj v).card
 
