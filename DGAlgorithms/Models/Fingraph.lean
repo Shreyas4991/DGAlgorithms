@@ -110,7 +110,8 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph V)
       observe h_subset : visitedᶜ ∩ {top}ᶜ ⊆ visitedᶜ
       have h_neq : visitedᶜ ∩ {top}ᶜ ≠ visitedᶜ := by simp [h_vis]
       observe h_proper_sub : visitedᶜ ∩ {top}ᶜ ⊂ visitedᶜ
-      exact Finset.card_lt_card h_proper_sub
+      observe hgoal: (visitedᶜ ∩ {top}ᶜ).card < visitedᶜ.card
+      exact hgoal
 
 
 
@@ -139,7 +140,8 @@ def BFS_ConnectedCompAux (g : SimpleFinGraph V)
       observe h_subset : visitedᶜ ∩ {top}ᶜ ⊆ visitedᶜ
       have h_neq : visitedᶜ ∩ {top}ᶜ ≠ visitedᶜ := by simp [h_vis]
       observe h_proper_sub : visitedᶜ ∩ {top}ᶜ ⊂ visitedᶜ
-      exact Finset.card_lt_card h_proper_sub
+      observe hg: (visitedᶜ ∩ {top}ᶜ).card < visitedᶜ.card
+      exact hg
 
 
 def BFS_ConnectedComp (g : SimpleFinGraph V) (start : V) :=
