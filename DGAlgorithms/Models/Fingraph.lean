@@ -1,6 +1,5 @@
 import Mathlib
 import Batteries
-import DGAlgorithms.Models.ListAPI
 
 open SimpleGraph
 namespace DG

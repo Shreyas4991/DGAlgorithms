@@ -167,7 +167,7 @@ def extract (v : Vector α n) (start stop : Nat) : Vector α (min stop n - start
   ⟨Array.extract v.toArray start stop, by simp [v.size_eq]⟩
 
 /-- Maps a vector under a function. -/
-def map (f : α → β) (v : Vector α n) : Vector β n :=
+abbrev map (f : α → β) (v : Vector α n) : Vector β n :=
   ⟨v.toArray.map f, by simp [v.size_eq]⟩
 
 /-- Maps two vectors under a curried function of two variables. -/

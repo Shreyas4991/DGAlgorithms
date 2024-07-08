@@ -19,8 +19,10 @@ namespace Vector
 
 /-- An `empty` vector maps to a `empty` vector. -/
 @[simp]
-theorem map_empty (f : α → β) : map f empty = empty :=
-  rfl
+theorem map_empty (f : α → β) : map f empty = empty := by
+  simp [map]
+
+  sorry
 
 
 theorem eq : ∀ v w : Vector α n, v.toArray = w.toArray → v = w

@@ -1,6 +1,8 @@
 import Mathlib
 import Batteries
 
+set_option linter.unusedTactic false
+
 def isUnique (xs : List α) : Prop :=
   match xs with
   | [] => True
