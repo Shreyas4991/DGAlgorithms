@@ -48,7 +48,7 @@ lemma connected_adjacent :
 
 structure PN_Labelling (V : Type u) (Γ : V → Type u) where -- here Γ is the type of output labels
   network : SimplePN V
-  output : (v : V) → Γ v -- the output type can in general be dependent on the vertex
+  output : (v : V) → Γ v -- the output type can in general be dependent on the vertex. We use this for edge labellings
 
 abbrev NodeSubset_Labelling (V : Type) := PN_Labelling V (fun _ => Prop)
 
@@ -73,7 +73,7 @@ structure EdgeOrientationLabelling (N : SimplePN V) extends PN_Labelling  V (fun
         → i ∈ output v →  j ∉ output w
 
 
-abbrev PN_Problem (V : Type u) (Γ : V → Type u) := Set (PN_Labelling V Γ)
+abbrev AllowedLabellings (V : Type u) (Γ : V → Type u) := Set (PN_Labelling V Γ)
 
 
 namespace ExampleProblems
@@ -93,11 +93,11 @@ def ex2 (N : SimplePN V) : EdgeSubsetLabelling N where
     tauto
 
 
-def is_VC (N : SimplePN V) : PN_Problem V (fun _ => Prop) :=
+def is_VC (N : SimplePN V) : AllowedLabellings V (fun _ => Prop) :=
   { L | ∀ v w : V, N.connected v w → L.output v ∨ (L.output w)}
 
 
-def isIndepVertexSet (N : SimplePN V) : PN_Problem V (fun _ => Prop) :=
+def isIndepVertexSet (N : SimplePN V) : AllowedLabellings V (fun _ => Prop) :=
   { L | ∀ v w : V, L.output v ∧ L.output w →  ¬ N.connected v w}
 
 
@@ -153,6 +153,17 @@ def terminatedAtT (A : Algorithm I S M) (N : SimplePN V) (state : AlgoState N S 
   fun T => terminatedByT A N state T ∧ ¬(terminatedByT A N state (T - 1))
 
 
+/--helper lemma for termination -/
+lemma not_term_exists_non_output_state
+  (N : SimplePN V)
+  (A : Algorithm I S M) :
+    ∀ state : AlgoState N S M, ¬terminated (A : Algorithm I S M) N state
+    → ∃ v : V, state.s_vec v ∉ A.stopStates := by
+  intro s h
+  simp [terminated] at h
+  assumption
+
+
 inductive Execution (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M → Type where
   | initState (i : V → I) : Execution N A (initState N A i)
   | nextState (cs : AlgoState N S M) : Execution N A (updateState N A cs)
@@ -162,3 +173,14 @@ inductive Execution (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M →
 inductive TimedExecution (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M → ℕ → Type where
   | initState (i : V → I) : TimedExecution N A (initState N A i) 0
   | nextState (cs : AlgoState N S M) : TimedExecution N A (updateState N A cs) (cs.round + 1)
+
+
+structure DistributedGraphProblem (N : SimplePN V) (I O : Type) where
+  graph_class : Set (SimplePN V)
+  input_labellings : Set (PN_Labelling V (fun _ => I))
+  output_labellings : Set (PN_Labelling V (fun _ => O))
+
+set_option diagnostics true
+def Algorithm.Solves (Alg : Algorithm I S M) (N : SimplePN V)
+  (Prob : DistributedGraphProblem N I S) (time : ℕ) : Prop  :=
+  ∃ S, terminatedAtT Alg N S time ∧ ⟨N,S.s_vec⟩ ∈ Prob.output_labellings
