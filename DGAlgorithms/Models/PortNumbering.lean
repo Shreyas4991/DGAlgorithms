@@ -1,5 +1,7 @@
 import Mathlib
 
+namespace DGAlgorithms
+
 structure PN_Net (V : Type u) where
   deg : V → ℕ
   pmap : ((v : V) × Fin (deg v)) → ((w : V) × (Fin (deg w)))
@@ -180,3 +182,6 @@ def Algorithm.initialised (Alg : Algorithm I S M) (N : SimplePN V) (input : V �
 def Algorithm.Solved (Alg : Algorithm I S M) (N : SimplePN V)
   (Prob : DistributedGraphProblem N I S)  (time : ℕ) : Prop  :=
     ∃ S, terminatedAtT Alg N S time ∧ ⟨N,S.state_vec⟩ ∈ Prob.output_labellings
+
+
+end DGAlgorithms

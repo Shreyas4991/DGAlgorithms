@@ -2,7 +2,7 @@ import Mathlib
 import Batteries
 
 open SimpleGraph
-namespace DG
+namespace DGAlgorithms
 
 -- This is a multigraph
 
@@ -27,13 +27,11 @@ def fromSimpleGraph : SimpleFinGraph V := {
     -- used aesop below.
     simp_all only [Set.mem_setOf_eq, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, true_and]
     apply G.symm w_adj_v
-    done
   loopless := by
     intro v vmem
     -- used aesop below
     simp_all only [Set.mem_setOf_eq, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, SimpleGraph.irrefl,
       and_false]
-    done
 }
 
 def toSimpleGraph (g : SimpleFinGraph V): SimpleGraph V := {
@@ -41,7 +39,6 @@ def toSimpleGraph (g : SimpleFinGraph V): SimpleGraph V := {
   symm := by
     intro x y hadj
     solve_by_elim [g.symm]
-    done
   loopless := by
     intro x
     solve_by_elim [g.loopless]
@@ -147,4 +144,4 @@ def BFS_ConnectedComp (g : SimpleFinGraph V) (start : V) :=
   BFS_ConnectedCompAux V g [start] ∅
 
 
-end DG
+end DGAlgorithms
