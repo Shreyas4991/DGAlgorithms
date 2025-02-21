@@ -125,50 +125,53 @@ structure Algorithm (I S M: Type) where
 
 structure AlgoState (N: SimplePN V) (S M : Type) where
   state_vec : V → S
-  round : ℕ
 
 abbrev initState (N : SimplePN V) (A : Algorithm I S M) (inp : V → I) : AlgoState N S M where
   state_vec := fun v => A.init (inp v)
-  round := 0
 
 abbrev updateState (N : SimplePN V) (A : Algorithm I S M) (cS : AlgoState N S M) : AlgoState N S M :=
   let message_received := fun v port => A.send (cS.state_vec v) port
   let new_s_vec := fun v => A.recv (cS.state_vec v, message_received v)
   {
     state_vec := fun v => new_s_vec v
-    round := cS.round + 1
   }
 
-def terminated (A : Algorithm I S M) (N : SimplePN V) (state : AlgoState N S M): Prop :=
-  ∀ v : V, state.state_vec v ∈ A.stopStates
 
-def terminatedByT (A : Algorithm I S M) (N : SimplePN V) (state : AlgoState N S M) : ℕ → Prop :=
-  fun T => terminated A N state ∧ state.round ≤ T
+
+
+
+section Trace
+
 /-
 From this point there are two ways forward. We can define an operational semantics
 for the execution of the algorithm as an inductive type. Alternatively we can define the
 execution of an algorithm as a structure. Let's try the inductive structure first.
 -/
-def terminatedAtT (A : Algorithm I S M) (N : SimplePN V) (state : AlgoState N S M) : ℕ → Prop :=
-  fun T => terminatedByT A N state T ∧ ¬(terminatedByT A N state (T - 1))
 
 
-/--helper lemma for termination -/
+inductive ExecutionTrace (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M → ℕ → Type where
+  | initState (i : V → I) : ExecutionTrace N A (initState N A i) 0
+  | nextState (E : ExecutionTrace N A cs t) : ExecutionTrace N A (updateState N A cs) (t + 1)
+
+variable {A : Algorithm I S M} {N : SimplePN V} {st : AlgoState N S M}
+
+def terminated (_ : ExecutionTrace N A st t) : Prop :=
+  ∀ v : V, st.state_vec v ∈ A.stopStates
+
+def terminatedByT (E : ExecutionTrace N A st t) : ℕ → Prop :=
+  fun T => terminated E ∧ t ≤ T
+
+def terminatedAtT (E : ExecutionTrace N A st t): ℕ → Prop :=
+  fun T => terminatedByT E T ∧ ¬(terminatedByT E (T - 1))
+
 lemma not_term_exists_non_output_state
-  (N : SimplePN V)
-  (A : Algorithm I S M) :
-    ∀ state : AlgoState N S M, ¬terminated (A : Algorithm I S M) N state
-    → ∃ v : V, state.state_vec v ∉ A.stopStates := by
-  intro s h
+  (E : ExecutionTrace N A st t):
+    ¬terminated E → ∃ v : V, st.state_vec v ∉ A.stopStates := by
+  intro h
   simp [terminated] at h
   assumption
 
-
-inductive ExecutionTrace (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M → Type where
-  | initState (i : V → I) : ExecutionTrace N A (initState N A i)
-  | nextState (cs : AlgoState N S M) : ExecutionTrace N A (updateState N A cs)
-
-
+end Trace
 structure DistributedGraphProblem (N : SimplePN V) (I O : Type) where
   graph_class : Set (SimplePN V)
   input_labellings : Set (PN_Labelling V (fun _ => I))
@@ -181,7 +184,9 @@ def Algorithm.initialised (Alg : Algorithm I S M) (N : SimplePN V) (input : V �
 
 def Algorithm.Solved (Alg : Algorithm I S M) (N : SimplePN V)
   (Prob : DistributedGraphProblem N I S)  (time : ℕ) : Prop  :=
-    ∃ S, terminatedAtT Alg N S time ∧ ⟨N,S.state_vec⟩ ∈ Prob.output_labellings
+      ∃ st : AlgoState N S M,
+        ∃ E : ExecutionTrace N Alg st time, terminatedByT E time
+              ∧ ⟨N, st.state_vec⟩ ∈ Prob.output_labellings
 
 
 end DGAlgorithms
