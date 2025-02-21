@@ -21,6 +21,7 @@ noncomputable def isIndepVertexSet (G : SimpleGraph V) (I : Finset V) :=
 noncomputable def isIndepVertexSet_edgeDef (G : SimpleGraph V) (I : Finset V) :=
   ∀ v w : V, G.Adj v w → ¬v ∈ I ∨  ¬ w ∈ I
 
+omit [Fintype V] in
 lemma test_equiv_lemma_ind : ∀ G : SimpleGraph V, ∀ I,
   isIndepVertexSet G I ↔ isIndepVertexSet_edgeDef G I := by
   intro G I
@@ -85,6 +86,7 @@ noncomputable def isMinimumVC (G : SimpleGraph V) (C : Finset V) :=
 noncomputable def isMinimumDomSet (G : SimpleGraph V) (C : Finset V) :=
   isMinimumSet (isDominatingSet G) C
 
+omit [Fintype V] in
 lemma isMaximalImpliesNoIns (Pred : Finset V → Prop) (X : Finset V) :
   isMaximalSet Pred X → isMaximalSet_noInsert Pred X := by
   simp [isMaximalSet, isMaximalSet_noInsert]
@@ -101,6 +103,7 @@ lemma isMaximalImpliesNoIns (Pred : Finset V → Prop) (X : Finset V) :
     exact h_isMaximal
     done
 
+omit [Fintype V] [DecidableEq V] in
 lemma maximum_implies_maximal (Pred : Finset V → Prop) (X : Finset V) :
   isMaximumSet Pred X → isMaximalSet Pred X := by
   intro h_maximum
@@ -114,6 +117,7 @@ lemma maximum_implies_maximal (Pred : Finset V → Prop) (X : Finset V) :
       specialize hmax Y this
       exact hmax Y_neq
 
+omit [Fintype V] [DecidableEq V] in
 lemma minimum_implies_minimal (Pred : Finset V → Prop) (X : Finset V) :
   isMinimumSet Pred X → isMinimalSet Pred X := by
   intro h_minimum

@@ -170,17 +170,16 @@ inductive Execution (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M →
 
 
 
-inductive TimedExecution (N : SimplePN V) (A : Algorithm I S M) : AlgoState N S M → ℕ → Type where
-  | initState (i : V → I) : TimedExecution N A (initState N A i) 0
-  | nextState (cs : AlgoState N S M) : TimedExecution N A (updateState N A cs) (cs.round + 1)
-
-
 structure DistributedGraphProblem (N : SimplePN V) (I O : Type) where
   graph_class : Set (SimplePN V)
   input_labellings : Set (PN_Labelling V (fun _ => I))
   output_labellings : Set (PN_Labelling V (fun _ => O))
 
-set_option diagnostics true
-def Algorithm.Solves (Alg : Algorithm I S M) (N : SimplePN V)
-  (Prob : DistributedGraphProblem N I S) (time : ℕ) : Prop  :=
-  ∃ S, terminatedAtT Alg N S time ∧ ⟨N,S.s_vec⟩ ∈ Prob.output_labellings
+
+def Algorithm.initialised (Alg : Algorithm I S M) (N : SimplePN V) (input : V → I) : AlgoState N S M → Prop :=
+  fun s ↦ s = initState N Alg input
+
+
+def Algorithm.Solved (Alg : Algorithm I S M) (N : SimplePN V)
+  (Prob : DistributedGraphProblem N I S) (input : V → I) (time : ℕ) : Prop  :=
+    ∃ S, terminatedAtT Alg N S time ∧ ⟨N,S.s_vec⟩ ∈ Prob.output_labellings
