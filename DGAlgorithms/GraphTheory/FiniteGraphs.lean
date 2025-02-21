@@ -45,7 +45,6 @@ def toSimpleGraph (g : SimpleFinGraph V): SimpleGraph V := {
   loopless := by
     intro x
     solve_by_elim [g.loopless]
-    done
 }
 
 def deg_v (g : SimpleFinGraph V) (v : V) : ℕ := (g.adj v).card
@@ -53,13 +52,14 @@ def deg_v (g : SimpleFinGraph V) (v : V) : ℕ := (g.adj v).card
 def isIsolated (g : SimpleFinGraph V) (v : V) : Prop :=
   (g.adj v) = ∅
 
+omit iFin iDec [Repr V] in
 lemma isolated_not_sink (g : SimpleFinGraph V) (v : V) (h : isIsolated V g v)
   : ∀ w : V, ¬ v ∈ g.adj w := by
   intro w hcontra
   simp [isIsolated] at h
   apply g.symm at hcontra
   simp_all only [Finset.not_mem_empty]
-  done
+
 
 def isClique (g : SimpleFinGraph V) : Prop :=
   ∀ v w : V, w ∈ g.adj v

@@ -98,10 +98,8 @@ lemma isMaximalImpliesNoIns (Pred : Finset V → Prop) (X : Finset V) :
     specialize h_isMaximal (insert v X)
     have hsub : X ⊂ insert v X := by
       exact Finset.ssubset_insert v_not_X
-      done
     specialize h_isMaximal hsub
     exact h_isMaximal
-    done
 
 omit [Fintype V] [DecidableEq V] in
 lemma maximum_implies_maximal (Pred : Finset V → Prop) (X : Finset V) :
@@ -113,7 +111,6 @@ lemma maximum_implies_maximal (Pred : Finset V → Prop) (X : Finset V) :
       intro Y Y_sub Y_neq
       have : X.card < Y.card := by
         exact Finset.card_lt_card Y_sub
-        done
       specialize hmax Y this
       exact hmax Y_neq
 
@@ -138,11 +135,10 @@ theorem VC_complement_indep (G : SimpleGraph V)
   · intro hVC v v_not_C w w_not_C adj_vw
     specialize hVC v w adj_vw
     tauto
-    done
+
   · intro hIndep v w adj_vw
     by_contra h_C
     tauto
-    done
 
 lemma Finset_compl_sub [Fintype α] [DecidableEq α] (Y C : Finset α)
   : Cᶜ ⊆ Y → Yᶜ ⊆ C := by
@@ -151,7 +147,6 @@ lemma Finset_compl_sub [Fintype α] [DecidableEq α] (Y C : Finset α)
   by_contra h'
   specialize h h'
   exact x_notin_Y h
-  done
 
 lemma Finset_compl_ssub [Fintype α] [DecidableEq α] (Y C : Finset α)
   : Cᶜ ⊂ Y → Yᶜ ⊂ C := by
@@ -178,7 +173,6 @@ lemma Finset_compl_compl_sub [Fintype α] [DecidableEq α] (Y C : Finset α) : Y
   nth_rw 1 [←compl_compl Y] at h
   apply Finset_compl_ssub
   exact h
-  done
 
 lemma Finset_compl_card [Fintype α] [DecidableEq α] (Y C : Finset α)
   : Cᶜ.card < Y.card → Yᶜ.card < C.card := by
@@ -187,10 +181,8 @@ lemma Finset_compl_card [Fintype α] [DecidableEq α] (Y C : Finset α)
     exact Finset.card_le_univ Y
   have bad_ineq : ¬ Y.card - ↑(Fintype.card α) ≥ 1 := by
     simp [univ₁]
-    done
   rw [Finset.card_compl] at *
   omega
-  done
 
 lemma Finset_compl_compl_card [Fintype α] [DecidableEq α] (Y C : Finset α)
   : C.card < Y.card → Yᶜ.card < Cᶜ.card := by
@@ -225,7 +217,6 @@ theorem minimal_VC_complement_maximal_indep
       specialize hMaxIndep Yᶜ (Finset_compl_compl_sub Y C Y_sub)
       rw [VC_complement_indep]
       exact hMaxIndep
-      done
 
 -- Exercise 2.1 c)
 
@@ -245,7 +236,6 @@ theorem minimum_VC_complement_maximum_indep (C : Finset V) :
       specialize minVC Yᶜ (Finset_compl_card Y C Ycard)
       rw[VC_complement_indep G Yᶜ, compl_compl] at minVC
       exact minVC
-    done
   · rintro ⟨Ind, maxInd⟩
     constructor
     · rw[VC_complement_indep G C]
