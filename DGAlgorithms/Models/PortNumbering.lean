@@ -22,6 +22,7 @@ lemma SimplePN.simple_old (N : SimplePN V) : ∀ v w : V, ∀ i : Fin (N.deg v),
   rw [←heq_eq_eq]
   exact h
 
+-- Should probnably be `adjacent` or `Adj`
 def SimplePN.connected (N : SimplePN V) (u v : V) : Prop :=
   ∃ i, ∃ j, N.pmap ⟨u,i⟩ = ⟨v,j⟩
 
@@ -33,6 +34,7 @@ lemma connected_symm (N : SimplePN V) : N.connected u v → N.connected v u := b
   use p₂, p₁
   rw [←h, N.p_involutive ⟨u, p₁⟩]
 
+-- Conflicting name
 lemma loopless (N : SimplePN V) : ¬ N.connected u u := by
   intro h
   simp[SimplePN.connected, N.loopless] at h
@@ -52,9 +54,15 @@ def underlyingSimpleGraph (V : Type) (N : SimplePN V) : SimpleGraph V where
 -- then they are adjacent in the underlying graph
 lemma connected_adjacent :
   ∀ (N : SimplePN V),
-    ∀ v w : V, N.connected v w → (underlyingSimpleGraph V N).Adj v w := by
-    intro N v w hconn
-    simp[underlyingSimpleGraph, hconn]
+    ∀ v w : V, N.connected v w ↔ (underlyingSimpleGraph V N).Adj v w := by
+    intro N v w
+    constructor
+    case mp =>
+      intro hconn
+      simp [underlyingSimpleGraph, hconn]
+    case mpr =>
+      intro hconn
+      exact hconn
 
 
 
