@@ -137,9 +137,9 @@ messages. The alternative is to use the `Option` type for messages, which is muc
 structure Algorithm (I S M: Type) where
   stopStates : Set S
   init : I → S -- initialises the SM to start state from the input
-  send : S → ℕ → M
-  recv : S × (ℕ → M) → S -- transition to the next state based on current state and received messages
-  stopping_condition : ∀ y : ℕ → M, ∀ s : S, s ∈ stopStates → recv (s, y) = s
+  send : (d : ℕ) → S → Fin d → M
+  recv : (d : ℕ) → S × (Fin d → M) → S -- transition to the next state based on current state and received messages
+  stopping_condition : ∀ d : ℕ, ∀ y : Fin d → M, ∀ s : S, s ∈ stopStates → recv d (s, y) = s
 
 structure AlgoState (N: SimplePN V) (S M : Type) where
   state_vec : V → S
@@ -148,8 +148,8 @@ abbrev initState (N : SimplePN V) (A : Algorithm I S M) (inp : V → I) : AlgoSt
   state_vec := fun v => A.init (inp v)
 
 abbrev updateState (N : SimplePN V) (A : Algorithm I S M) (cS : AlgoState N S M) : AlgoState N S M :=
-  let message_received := fun v port => A.send (cS.state_vec v) port
-  let new_s_vec := fun v => A.recv (cS.state_vec v, message_received v)
+  let message_received := fun v port => A.send (N.deg v) (cS.state_vec v) port
+  let new_s_vec := fun v => A.recv (N.deg v) (cS.state_vec v, message_received v)
   {
     state_vec := fun v => new_s_vec v
   }
