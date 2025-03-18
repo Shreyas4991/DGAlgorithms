@@ -112,6 +112,10 @@ jobs:
         with:
           path: ${{ env.HOME_PAGE_EXISTS == 'true' && 'home_page/_site' || 'home_page/' }}
 
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
       # - name: Make sure the API documentation cache works
       #   run: mv home_page/docs .lake/build/doc
      
