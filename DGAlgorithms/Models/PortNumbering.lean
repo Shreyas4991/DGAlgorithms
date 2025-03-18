@@ -9,9 +9,20 @@ structure PN_Net (V : Type u) where
 
 structure SimplePN (V : Type u) extends PN_Net V where
   loopless : ∀ v : V, ∀ i j : Fin (deg v), pmap ⟨v,i⟩ ≠ ⟨v, j⟩
-  simple : ∀ v w : V, ∀ i : Fin (deg v), ∀ j k : Fin (deg w), pmap ⟨v,i⟩ = pmap ⟨w,j⟩ ∧ pmap ⟨v, i⟩ = pmap ⟨w,k⟩ → j = k
+  simple : ∀ v : V, ∀ i j : Fin (deg v), (pmap ⟨v, i⟩).fst = (pmap ⟨v, j⟩).fst → i = j
 
+-- A demonstartion that the old definition of simple didn't introduce anything new.
+-- This can be removed.
+lemma SimplePN.simple_old (N : SimplePN V) : ∀ v w : V, ∀ i : Fin (N.deg v), ∀ j k : Fin (N.deg w), N.pmap ⟨v,i⟩ = N.pmap ⟨w,j⟩ ∧ N.pmap ⟨v, i⟩ = N.pmap ⟨w,k⟩ → j = k := by
+  intro v w i j k ⟨h1, h2⟩
+  have h := h1 ▸ h2
+  have h := congrArg N.pmap h
+  repeat rw [N.p_involutive] at h
+  obtain ⟨_, h⟩ := Sigma.mk.inj_iff.mp h
+  rw [←heq_eq_eq]
+  exact h
 
+-- Should probnably be `adjacent` or `Adj`
 def SimplePN.connected (N : SimplePN V) (u v : V) : Prop :=
   ∃ i, ∃ j, N.pmap ⟨u,i⟩ = ⟨v,j⟩
 
@@ -23,6 +34,7 @@ lemma connected_symm (N : SimplePN V) : N.connected u v → N.connected v u := b
   use p₂, p₁
   rw [←h, N.p_involutive ⟨u, p₁⟩]
 
+-- Conflicting name
 lemma loopless (N : SimplePN V) : ¬ N.connected u u := by
   intro h
   simp[SimplePN.connected, N.loopless] at h
@@ -42,9 +54,15 @@ def underlyingSimpleGraph (V : Type) (N : SimplePN V) : SimpleGraph V where
 -- then they are adjacent in the underlying graph
 lemma connected_adjacent :
   ∀ (N : SimplePN V),
-    ∀ v w : V, N.connected v w → (underlyingSimpleGraph V N).Adj v w := by
-    intro N v w hconn
-    simp[underlyingSimpleGraph, hconn]
+    ∀ v w : V, N.connected v w ↔ (underlyingSimpleGraph V N).Adj v w := by
+    intro N v w
+    constructor
+    case mp =>
+      intro hconn
+      simp [underlyingSimpleGraph, hconn]
+    case mpr =>
+      intro hconn
+      exact hconn
 
 
 
