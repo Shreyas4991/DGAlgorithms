@@ -1,78 +1,7 @@
 import Mathlib
+import DGAlgorithms.Network.PNNetwork
 
 namespace DGAlgorithms
-
-/-- A Port-Numbered Network.
-
-Each node `v` of the network has some `deg v` ports attached to it. Each port
-is attached to another port, given by `pmap`. Function `pmap` is involutive,
-that is if `p₁` is connected to `p₂`, then `p₂` is also connected to `p₁`.
- -/
-structure PNNetwork (V : Type u) where
-  /-- Degree of a node. -/
-  deg : V → ℕ
-  /-- Map from a given port of a node to the other end of the edge. -/
-  pmap : ((v : V) × Fin (deg v)) → ((w : V) × (Fin (deg w)))
-  /-- Ensure that ports are properly connected. -/
-  pmap_involutive : Function.Involutive pmap
-
-structure SimplePN (V : Type u) extends PNNetwork V where
-  loopless : ∀ v : V, ∀ i j : Fin (deg v), pmap ⟨v,i⟩ ≠ ⟨v, j⟩
-  simple : ∀ v : V, ∀ i j : Fin (deg v), (pmap ⟨v, i⟩).fst = (pmap ⟨v, j⟩).fst → i = j
-
--- A demonstartion that the old definition of simple didn't introduce anything new.
--- This can be removed.
-lemma SimplePN.simple_old (N : SimplePN V) : ∀ v w : V, ∀ i : Fin (N.deg v), ∀ j k : Fin (N.deg w), N.pmap ⟨v,i⟩ = N.pmap ⟨w,j⟩ ∧ N.pmap ⟨v, i⟩ = N.pmap ⟨w,k⟩ → j = k := by
-  intro v w i j k ⟨h1, h2⟩
-  have h := h1 ▸ h2
-  have h := congrArg N.pmap h
-  repeat rw [N.pmap_involutive] at h
-  obtain ⟨_, h⟩ := Sigma.mk.inj_iff.mp h
-  rw [←heq_eq_eq]
-  exact h
-
--- Should probnably be `adjacent` or `Adj`
-def SimplePN.connected (N : SimplePN V) (u v : V) : Prop :=
-  ∃ i, ∃ j, N.pmap ⟨u,i⟩ = ⟨v,j⟩
-
-lemma connected_symm (N : SimplePN V) : N.connected u v → N.connected v u := by
-  intro h
-  simp_all[SimplePN.connected]
-  cases' h with p₁ h
-  cases' h with p₂ h
-  use p₂, p₁
-  rw [←h, N.pmap_involutive ⟨u, p₁⟩]
-
--- Conflicting name
-lemma loopless (N : SimplePN V) : ¬ N.connected u u := by
-  intro h
-  simp[SimplePN.connected, N.loopless] at h
-
-def underlyingSimpleGraph (V : Type) (N : SimplePN V) : SimpleGraph V where
-  Adj := fun x y => N.connected x y
-  symm := by
-    intro v w h
-    solve_by_elim [connected_symm]
-
-  loopless := by
-    intro u h
-    solve_by_elim [loopless]
-
-
--- A lemma that just says that if two PN nodes are connected,
--- then they are adjacent in the underlying graph
-lemma connected_adjacent :
-  ∀ (N : SimplePN V),
-    ∀ v w : V, N.connected v w ↔ (underlyingSimpleGraph V N).Adj v w := by
-    intro N v w
-    constructor
-    case mp =>
-      intro hconn
-      simp [underlyingSimpleGraph, hconn]
-    case mpr =>
-      intro hconn
-      exact hconn
-
 
 
 structure PN_Labelling (V : Type u) (Γ : V → Type u) where -- here Γ is the type of output labels
@@ -80,8 +9,6 @@ structure PN_Labelling (V : Type u) (Γ : V → Type u) where -- here Γ is the 
   output : (v : V) → Γ v -- the output type can in general be dependent on the vertex. We use this for edge labellings
 
 abbrev NodeSubset_Labelling (V : Type) := PN_Labelling V (fun _ => Prop)
-
-
 
 
 structure EdgeLabelling (N : SimplePN V) (L : Type) extends PN_Labelling  V (fun (v : V)  => (Fin (N.deg v)) → L) where
@@ -123,15 +50,15 @@ def ex2 (N : SimplePN V) : EdgeSubsetLabelling N where
 
 
 def is_VC (N : SimplePN V) : AllowedLabellings V (fun _ => Prop) :=
-  { L | ∀ v w : V, N.connected v w → L.output v ∨ (L.output w)}
+  { L | ∀ v w : V, N.Adj v w → L.output v ∨ (L.output w)}
 
 
 def isIndepVertexSet (N : SimplePN V) : AllowedLabellings V (fun _ => Prop) :=
-  { L | ∀ v w : V, L.output v ∧ L.output w →  ¬ N.connected v w}
+  { L | ∀ v w : V, L.output v ∧ L.output w →  ¬ N.Adj v w}
 
 
 def isEdgeCover (N : SimplePN V)  :=
-  { L : EdgeSubsetLabelling N | ∀ v w : V, N.connected v w
+  { L : EdgeSubsetLabelling N | ∀ v w : V, N.Adj v w
       → (∃ i : Fin (N.deg v), L.output v i) ∨ (∃ j : Fin (N.deg w), L.output w j) }
 
 end ExampleProblems
