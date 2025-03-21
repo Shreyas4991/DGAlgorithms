@@ -1,5 +1,13 @@
 import Mathlib
 
+/-!
+# Port-Numbered Networks
+
+In this file, we define PN Networks and what it means for a network to be
+simple. We then provide the natural coersion from the simple network into a
+[Mathlib.SimpleGraph]. Finally, we prove some simplification lemmas.
+-/
+
 namespace DGAlgorithms
 
 /-- A Port-Numbered Network.
@@ -34,6 +42,25 @@ See [Mathlib.SimpleGraph.Adj] for comparison.
 def SimplePN.Adj (N : SimplePN V) (u v : V) : Prop :=
   ∃ i, ∃ j, N.pmap ⟨u,i⟩ = ⟨v,j⟩
 
+/-- Another way to define adjacency using only one exists. -/
+def SimplePN.Adj' (N : SimplePN V) (u v : V) : Prop :=
+  ∃ i, (N.pmap ⟨u, i⟩).fst = v
+
+/-- Both definitions of adjacency are equal. -/
+lemma SimplePN.Adj_eq_Adj' (N : SimplePN V) : N.Adj = N.Adj' := by
+  ext u v
+  constructor
+  case mp =>
+    intro h
+    obtain ⟨i, j, h⟩ := h
+    use i
+    simp_all
+  case mpr =>
+    intro h
+    obtain ⟨i, h⟩ := h
+    subst h
+    use i, (N.pmap ⟨u, i⟩).snd
+
 /-- The induced adjacency relation is symmetric. -/
 lemma SimplePN.Adj.symm (N : SimplePN V) : Symmetric N.Adj := by
   intro u v h
@@ -62,7 +89,7 @@ instance (V : Type*) : CoeOut (SimplePN V) (SimpleGraph V) where
   coe := SimplePN.to_SimpleGraph
 
 /-- Adjacency in the induced [Mathlib.SimpleGraph] is the same as in the
-original network
+original network.
 -/
 @[simp] lemma SimplePN.to_SimpleGraph_Adj_iff_Adj (N : SimplePN V) :
     ∀ v w : V, N.to_SimpleGraph.Adj v w ↔ N.Adj v w := by
@@ -74,3 +101,48 @@ original network
     case mpr =>
       intro hconn
       simp [to_SimpleGraph, hconn]
+
+/-- Networks always induce a locally finite graph. -/
+noncomputable instance SimplePN.to_SimpleGraph_LocallyFinite (N : SimplePN V) : N.to_SimpleGraph.LocallyFinite := by
+  intro v
+  unfold SimpleGraph.neighborSet to_SimpleGraph
+  conv =>
+    enter [1, 1, 1, w, 1, 1]
+    rw [Adj_eq_Adj']
+  unfold Adj'
+  apply Set.Finite.fintype
+  exact Set.toFinite {w | ∃ i, (N.pmap ⟨v, i⟩).fst = w}
+
+/-- Degree in the induced [Mathlib.SimpleGraph] is the same as in the original
+network.
+-/
+@[simp] lemma SimplePN.to_SimpleGraph_degree_eq_deg (N : SimplePN V) :
+    ∀ v : V, N.to_SimpleGraph.degree v = N.deg v := by
+  intro v
+
+  -- Unfold the definition of degree
+  rw [SimpleGraph.degree, SimpleGraph.neighborFinset, Set.toFinset_card]
+
+  -- We provide a bijection from Fin (N.deg v) to neighbors of v
+  let f : Fin (N.deg v) → { w : V // N.Adj v w } := fun i ↦ ⟨(N.pmap ⟨v, i⟩).fst, by
+    unfold Adj
+    use i
+    use ⟨(N.pmap ⟨v, i⟩).snd, by simp⟩
+  ⟩
+
+  have f_bij : Function.Bijective f := by
+    constructor
+    · intro i j h
+      exact N.simple v i j (Subtype.eq_iff.mp h)
+    · intro u
+      use u.property.choose
+      have ⟨j, hj⟩ := u.property.choose_spec
+      simp [f, hj]
+
+  -- Write n as #(Fin n)
+  rw [←Finset.card_fin (N.deg v)]
+
+  -- Now the result is immediate
+  symm
+  apply Finset.card_bijective f f_bij
+  simp_all
