@@ -10,7 +10,7 @@ pp.proofs.withType = false
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.18.0"
+rev = "v4.20.0-rc5"
 
 [[require]]
 name = "checkdecls"
@@ -19,7 +19,11 @@ git = "https://github.com/PatrickMassot/checkdecls.git"
 [[require]]
 name = "«doc-gen4»"
 git = "https://github.com/leanprover/doc-gen4"
-rev = "v4.18.0"
+rev = "v4.20.0-rc5"
+
+[[require]]
+name = "Canonical"
+scope = "chasenorman"
 
 [[lean_lib]]
 name = "DGAlgorithms"
