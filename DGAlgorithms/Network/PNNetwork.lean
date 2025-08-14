@@ -17,6 +17,18 @@ abbrev Port.node {V : Type u} (vp : Port V) : V := vp.fst
 
 abbrev Port.port {V : Type u} (vp : Port V) : ℕ := vp.snd
 
+/-- Ports can also be modelled as dependent pairs. -/
+abbrev FinPort (V : Type u) (deg : V → ℕ) := (v : V) × Fin (deg v)
+
+abbrev Port.to_FinPort (p : Port V) (deg : V → ℕ) (h : p.port < deg p.node) : FinPort V deg :=
+  ⟨p.node, ⟨p.port, h⟩⟩
+
+def FinPort.to_Port (p : FinPort V deg) : Port V := (p.fst, p.snd)
+
+@[simp] lemma Port.to_FinPort_to_Port_eq (p : Port V) {deg : V → ℕ} {h : p.port < deg p.node} : (p.to_FinPort deg h).to_Port = p := rfl
+
+@[simp] lemma FinPort.to_Port_to_FinPort_eq (p : FinPort V deg) : p.to_Port.to_FinPort deg p.snd.prop = p := rfl
+
 /-- A Port-Numbered Network.
 
 Each node `v` of the network has some `deg v` ports attached to it. Each port
@@ -41,7 +53,28 @@ structure PNNetwork (V : Type u) where
   -/
   is_well_defined : ∀ vp : Port V, (pmap vp).port < deg (pmap vp).node → vp.port < deg vp.node
 
-
+/-- A helper constructor of a PNNetwork.-/
+def PNNetwork.mk' {V : Type u} {deg : V → ℕ} (pmap : FinPort V deg → FinPort V deg) (h : Function.Involutive pmap) : PNNetwork V where
+  deg := deg
+  pmap := fun vp ↦
+    if h : vp.port < deg vp.node then
+      (pmap (vp.to_FinPort deg h)).to_Port
+    else
+      vp
+  pmap_involutive := by
+    intro v p hp
+    split_ifs with hvp_valid hvp'_valid
+    · simp
+      rw [h]
+      simp
+    · absurd hvp'_valid
+      exact (pmap (Port.to_FinPort (v, p) deg hvp_valid)).snd.prop
+    · contradiction
+    · contradiction
+  is_well_defined := by
+    intro vp hvp'
+    split at hvp'
+    all_goals assumption
 
 /-- Validity of a port.
 
@@ -176,46 +209,36 @@ noncomputable instance PNNetwork.to_SimpleGraph_LocallyFinite : N.to_SimpleGraph
 /-- Degree in the induced [Mathlib.SimpleGraph] is the same as in the original
 network.
 -/
--- @[simp] lemma SimplePN.to_SimpleGraph_degree_eq_deg :
---     ∀ v : V, s.to_SimpleGraph.degree v = N.deg v := by
---   intro v
+@[simp] lemma PNNetwork.to_SimpleGraph_degree_eq_deg :
+    ∀ v : V, N.to_SimpleGraph.degree v = N.deg v := by
+  intro v
 
---   -- Unfold the definition of degree
---   rw [SimpleGraph.degree, SimpleGraph.neighborFinset, Set.toFinset_card]
+  -- Unfold the definition of degree
+  rw [SimpleGraph.degree, SimpleGraph.neighborFinset, Set.toFinset_card]
 
---   -- We provide a bijection from Fin (N.deg v) to neighbors of v
---   let f : Fin (N.deg v) → { w : V // Adj N v w } := fun i ↦ ⟨(N.pmap ⟨v, i⟩).node, by
---     use i.val, i.prop
---     use (N.pmap ⟨v, i⟩).port, N.is_well_defined (v, i) i.prop
---     rfl
---   ⟩
+  -- We provide a bijection from Fin (N.deg v) to neighbors of v
+  let f : Fin (N.deg v) → { w : V // N.Adj v w } := fun i ↦ ⟨(N.pmap ⟨v, i⟩).node, by
+    use i.val, i.prop
+    use (N.pmap ⟨v, i⟩).port, (N.is_well_defined_iff (v, i)).mpr i.prop
+  ⟩
 
---   have f_bij : Function.Bijective f := by
---     constructor
---     · intro i j h
---       exact Fin.eq_of_val_eq $ s.simple v i.val j.val i.prop j.prop (Subtype.eq_iff.mp h)
---     · intro u
---       have := u.property.choose
---       obtain ⟨c, hc, _⟩ := u.property.choose_spec
---       use ⟨u.property.choose, c⟩
---       simp_all [f]
+  have f_bij : Function.Bijective f := by
+    constructor
+    · intro i j h
+      exact Fin.eq_of_val_eq $ s.simple v i.val j.val i.prop j.prop (Subtype.eq_iff.mp h)
+    · intro u
+      have := u.property.choose
+      obtain ⟨c, hc, _⟩ := u.property.choose_spec
+      use ⟨u.property.choose, c⟩
+      simp_all [f]
 
---   -- Write n as #(Fin n)
---   rw [←Finset.card_fin (N.deg v)]
+  -- Write n as #(Fin n)
+  rw [←Finset.card_fin (N.deg v)]
 
---   -- Now the result is immediate
---   symm
---   apply Finset.card_bijective f f_bij
---   simp_all
-
-
--- Helper constructor
-def PNNetwork.mk' {V : Type u} {deg : V → ℕ} (pmap : (v : V) × Fin (deg v) → (v : V) × Fin (deg v)) (h : Function.Involutive pmap) : PNNetwork V := sorry
-
-instance {V : Type u} {deg : V → ℕ} (pmap : (v : V) × Fin (deg v) → (v : V) × Fin (deg v)) (h : Function.Involutive pmap) : SimplePN (PNNetwork.mk' pmap h) := sorry
-
--- instance {V : Type u} {deg : V → ℕ} (pmap : (v : V) × Fin (deg v) → (v : V) × Fin (deg v)) (h : Function.Involutive pmap) :
---   PNNetwork.IsWellDefined (PNNetwork.mk' pmap h).toPNNetwork := sorry
+  -- Now the result is immediate
+  symm
+  apply Finset.card_bijective f f_bij
+  simp_all
 
 -- Pairing functions for PNNetwork,boxProd
 def unpair (w h : ℕ) (n : ℕ) : ℕ × ℕ :=
@@ -364,56 +387,6 @@ def PNNetwork.boxProd (G : PNNetwork V) (G' : PNNetwork V') : PNNetwork (V × V'
     -- Let's use that to show that the combination of vp' an up' is invalid, which then immediately leads
     -- to a contradiction.
     exact hvup'_valid.not_ge $ pair_invalid_iff.mp $ Or.inl $ Nat.ge_of_not_lt hvp'_invalid
-
--- Working proof
-    -- intro vup hvumapvalid
-    -- simp at hvumapvalid
-
-    -- -- by_cases h' : vp.port < (G.deg vp.node.1) * (G'.deg vp.node.2)
-    -- -- · assumption
-    --   -- have := pair_unpair _ h'
-    --   -- -- have := unpair_pair _ h'
-    --   -- simp
-    --   -- -- grw [pair_valid]
-    --   -- simp at h
-
-    --   -- sorry
-    -- -- ·
-    -- by_contra hcontra
-    -- simp at hcontra
-    -- -- simp at hvumapvalid
-    -- generalize hw : G.deg vup.node.1 = w at *
-    -- generalize hh : G'.deg vup.node.2 = h at *
-    -- generalize hvq : (vup.node.1, (unpair w h vup.port).1) = vq at *
-    -- generalize hvq' : (vup.node.2, (unpair w h vup.port).2) = vq' at *
-    -- -- generalize G.2 vq = uq at *
-
-    -- let vup_dis := unpair w h vup.port
-    -- -- let p := vup_dis.1
-    -- -- let p' := vup_dis.2
-
-    -- have hp : vup_dis.1 = w := by
-    --   apply unpair_invalid at hcontra
-    --   subst hw hvq' hvq hh
-    --   simp_all only [vup_dis]
-
-    -- have hp' : vup_dis.2 = h := by
-    --   apply unpair_invalid at hcontra
-    --   subst hw hvq' hvq hh
-    --   simp_all only [vup_dis]
-
-    -- have hc : vup_dis.1 ≥ w := Nat.le_of_eq hp.symm
-    -- have hc := Nat.not_lt_of_ge hc
-    -- have := Nat.ge_of_not_lt $ hvq ▸ hc ∘ (hw ▸ G.is_well_defined (vup.node.1, vup_dis.1))
-
-    -- -- rw [hvq] at this
-    -- unfold Port.port at hvumapvalid
-    -- -- apply pair_unpair_monotone (w := (G.deg (G.2 vq).1)) (h := h) at hvumapvalid
-    -- simp at hvumapvalid
-
-    -- have := pair_left_invalid (G.deg (G.2 vq).1) (G'.deg (G'.2 vq').1) (G.2 vq).2 (G'.2 vq').2 this
-    -- rw [this] at hvumapvalid
-    -- simp_all
 
 /-- Box product of PNNetworks. -/
 infixl:70 " □ " => PNNetwork.boxProd
