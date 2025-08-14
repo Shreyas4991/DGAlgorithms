@@ -24,7 +24,7 @@ def CoveringMap.mapPort (CM : CoveringMap G G') : G.Port' → G'.Port' :=
     rw [←CM.map_deg]
     simpa using p.prop⟩
 
-namespace Examples
+section Examples
 
 def CoveringMap.self (G : PNNetwork V) : CoveringMap G G where
   map := id
@@ -52,3 +52,22 @@ def doubleCover.isCoveringMap (N : PNNetwork V) : CoveringMap (doubleCover N) N 
     rfl
 
 end Examples
+
+def CoveringMap.comp (m₂ : CoveringMap G₂ G₃) (m₁ : CoveringMap G₁ G₂) : CoveringMap G₁ G₃ where
+  map := m₂.map ∘ m₁.map
+  map_surj := Function.Surjective.comp m₂.map_surj m₁.map_surj
+  map_deg := by
+    intro v
+    rw [m₁.map_deg, m₂.map_deg]
+    rfl
+  map_adj := by
+    intro p
+    dsimp
+    rw [←m₂.map_adj (m₁.map p.node, p.port)]
+    rw [←m₁.map_adj]
+
+infixr:90 " ∘ "  => CoveringMap.comp
+
+@[simp] lemma CoveringMap.comp_self (m : CoveringMap G G') : m ∘ CoveringMap.self G = m := by rfl
+
+@[simp] lemma CoveringMap.self_comp (m : CoveringMap G G') : CoveringMap.self G' ∘ m = m := by rfl
