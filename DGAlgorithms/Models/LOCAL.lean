@@ -9,7 +9,7 @@ variable {V : Type u} [iFinV : Fintype V] [iDecEqV : DecidableEq V]
 variable {ID : Type u} [iFinD : Fintype ID] [iDecEqID : DecidableEq ID]
 
 
-structure LOCAL_Network extends SimpleGraph V where
+structure LOCAL_Network extends SimplePN V where
   id_fun : V → ID
 
 structure DLOCAL_Network extends @LOCAL_Network V ID where
@@ -20,18 +20,20 @@ abbrev DLOCAL_Adj (N : LOCAL_Network) (id₁ id₂ : α) :=
 
 abbrev VBall (G : SimpleGraph V) (v : V) (r : ℕ) := {w : V | G.edist v w ≤ r}
 
-abbrev EBall (G : SimpleGraph V) (v : V) (r : ℕ) : V → V → Prop :=
+abbrev EBall (G : SimpleGraph V) (v : V) (r : ℕ)
+  : V → V → Prop :=
   fun x y => G.edist v x ≤ r ∧ G.edist v y ≤ r ∧ G.Adj x y
 
 open SimpleGraph
 
 omit iFinV iDecEqV in
-lemma EBall_symm (G : SimpleGraph V) (v : V) (r : ℕ) : Symmetric (EBall G v r) := by
+lemma EBall_symm (G : SimpleGraph V) (v : V) (r : ℕ)
+  : Symmetric (EBall G v r) := by
   simp [Symmetric, EBall]
   intro x y distx disty adj
   all_goals try tauto
 
-#print Subgraph 
+#print Subgraph
 #print IsSubgraph
 
 abbrev GBall (G : SimpleGraph V) (v : V) (r : ℕ) : SimpleGraph.Subgraph G where
@@ -50,6 +52,7 @@ abbrev GBall (G : SimpleGraph V) (v : V) (r : ℕ) : SimpleGraph.Subgraph G wher
   adj_sub := by
     intro x y
     simp
+
 
 
 #print edist_le_ediam

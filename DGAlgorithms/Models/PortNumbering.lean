@@ -4,14 +4,14 @@ import DGAlgorithms.Network.PNNetwork
 namespace DGAlgorithms
 
 
-structure PN_Labelling (V : Type u) (Γ : V → Type u) where -- here Γ is the type of output labels
-  network : SimplePN V
+structure GraphLabelling (V : Type u) (Γ : V → Type u) where -- here Γ is the type of output labels
+  network : SimpleGraph V
   output : (v : V) → Γ v -- the output type can in general be dependent on the vertex. We use this for edge labellings
 
-abbrev NodeSubset_Labelling (V : Type) := PN_Labelling V (fun _ => Prop)
+abbrev NodeSubset_Labelling (V : Type) := GraphLabelling V (fun _ => Prop)
 
 
-structure EdgeLabelling (N : SimplePN V) (L : Type) extends PN_Labelling  V (fun (v : V)  => (Fin (N.deg v)) → L) where
+structure EdgeLabelling (N : SimplePN V) (L : Type) extends GraphLabelling V (fun (v : V)  => (Fin (N.deg v)) → L) where
   consistency :
       ∀ v w : V, ∀ i : Fin (N.deg v), ∀ j : Fin (N.deg w), (N.pmap ⟨v,i⟩) = ⟨w,j⟩
         → output v i = output w j
@@ -23,13 +23,13 @@ abbrev EdgeSubsetLabelling (N : SimplePN V) :=
 
 
 -- edge orientation labellings are anti-consistent
-structure EdgeOrientationLabelling (N : SimplePN V) extends PN_Labelling  V (fun (v : V)  => (Set <| Fin (N.deg v))) where
+structure EdgeOrientationLabelling (N : SimplePN V) extends GraphLabelling V (fun (v : V)  => (Set <| Fin (N.deg v))) where
   anti_consistency :
       ∀ v w : V, ∀ i : Fin (N.deg v), ∀ j : Fin (N.deg w), (N.pmap ⟨v,i⟩) = ⟨w,j⟩
         → i ∈ output v ↔  j ∉ output w
 
 
-abbrev AllowedLabellings (V : Type u) (Γ : V → Type u) := Set (PN_Labelling V Γ)
+abbrev AllowedLabellings (V : Type u) (Γ : V → Type u) := Set (GraphLabelling V Γ)
 
 
 namespace ExampleProblems
@@ -68,7 +68,7 @@ end ExampleProblems
 An `Algorithm` is parameterised by the type of inputs `I`, states `S`, and messages `M`.
 We also add the node degree `d` as a parameter so that we can use `Fin d` to represent port specific
 messages. The alternative is to use the `Option` type for messages, which is much more tedious
-`stopStates` is the subset of states at which the algorithm halts
+`stopStates` is the subset of states at which the algorithm halts. This definition focusses on a single node.
 -/
 structure Algorithm (I S M: Type) where
   stopStates : Set S
@@ -77,6 +77,9 @@ structure Algorithm (I S M: Type) where
   recv : (d : ℕ) → S × (Fin d → M) → S -- transition to the next state based on current state and received messages
   stopping_condition : ∀ d : ℕ, ∀ y : Fin d → M, ∀ s : S, s ∈ stopStates → recv d (s, y) = s
 
+/-
+The next definitions focus on the execution of the algorithm on the entire network
+-/
 structure AlgoState (N: SimplePN V) (S M : Type) where
   state_vec : V → S
 
@@ -128,8 +131,8 @@ lemma not_term_exists_non_output_state
 end Trace
 structure DistributedGraphProblem (N : SimplePN V) (I O : Type) where
   graph_class : Set (SimplePN V)
-  input_labellings : Set (PN_Labelling V (fun _ => I))
-  output_labellings : Set (PN_Labelling V (fun _ => O))
+  input_labellings : Set (GraphLabelling V (fun _ => I))
+  output_labellings : Set (GraphLabelling V (fun _ => O))
 
 
 def Algorithm.initialised (Alg : Algorithm I S M) (N : SimplePN V) (input : V → I) : AlgoState N S M → Prop :=
