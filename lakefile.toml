@@ -10,7 +10,7 @@ pp.proofs.withType = false
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.18.0"
+rev = "stable"
 
 [[require]]
 name = "checkdecls"
