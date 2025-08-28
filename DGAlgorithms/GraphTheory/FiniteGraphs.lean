@@ -25,12 +25,12 @@ def fromSimpleGraph : SimpleFinGraph V := {
   symm := by
     intro w v w_adj_v
     -- used aesop below.
-    simp_all only [Set.mem_setOf_eq, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, true_and]
+    simp_all only [Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, true_and]
     apply G.symm w_adj_v
   loopless := by
     intro v vmem
     -- used aesop below
-    simp_all only [Set.mem_setOf_eq, Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, SimpleGraph.irrefl,
+    simp_all only [Set.toFinset_setOf, Finset.mem_filter, Finset.mem_univ, SimpleGraph.irrefl,
       and_false]
 }
 
@@ -55,7 +55,7 @@ lemma isolated_not_sink (g : SimpleFinGraph V) (v : V) (h : isIsolated V g v)
   intro w hcontra
   simp [isIsolated] at h
   apply g.symm at hcontra
-  simp_all only [Finset.not_mem_empty]
+  simp_all only [Finset.notMem_empty]
 
 
 def isClique (g : SimpleFinGraph V) : Prop :=
@@ -103,12 +103,17 @@ def DFS_ConnectedCompAux (g : SimpleFinGraph V)
     termination_by (visitedᶜ).card
     decreasing_by
       simp_wf
+      simp_all only [Finset.mem_compl, not_false_eq_true, Finset.card_erase_of_mem, tsub_lt_self_iff, Finset.card_pos,
+        zero_lt_one, and_true]
+      
+      /-
       observe h_subset : visitedᶜ ∩ {top}ᶜ ⊆ visitedᶜ
       have h_neq : visitedᶜ ∩ {top}ᶜ ≠ visitedᶜ := by simp [h_vis]
       observe h_proper_sub : visitedᶜ ∩ {top}ᶜ ⊂ visitedᶜ
       observe hgoal: (visitedᶜ ∩ {top}ᶜ).card < visitedᶜ.card
+      simp at hgoal
       exact hgoal
-
+      -/
 
 
 
