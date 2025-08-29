@@ -34,6 +34,7 @@ abbrev AllowedLabellings (V : Type u) (Γ : V → Type u) := Set (GraphLabelling
 
 namespace ExampleProblems
 
+
 -- trivially label all vertices true
 def ex1 (N : SimplePN V) : NodeSubset_Labelling V where
   network := N
@@ -48,6 +49,7 @@ def ex2 (N : SimplePN V) : EdgeSubsetLabelling N where
     simp
     tauto
 
+def is_ProperColouring (N : SimplePN V) : AllowedLabellings V (fun _ => ColourType) := { L | ∀ v w : V, N.Adj v w → L.output v ≠ L.output  w}
 
 def is_VC (N : SimplePN V) : AllowedLabellings V (fun _ => Prop) :=
   { L | ∀ v w : V, N.Adj v w → L.output v ∨ (L.output w)}

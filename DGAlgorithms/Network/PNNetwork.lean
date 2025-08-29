@@ -29,7 +29,7 @@ structure PNNetwork (V : Type u) where
 A PN network is simple if it is both loopless and simple, i.e. there are no
 duplicate edges.
 -/
-structure SimplePN (V : Type u) extends PNNetwork V where
+structure  SimplePN (V : Type u) extends PNNetwork V where
   /-- There are no edges from a node to itself. -/
   loopless : ∀ v : V, ∀ i j : Fin (deg v), pmap ⟨v,i⟩ ≠ ⟨v, j⟩
   /-- There is at most one edge between any pair of nodes. -/

@@ -5,22 +5,23 @@ namespace DGAlgorithms
 
 
 
-variable {V : Type u} [iFinV : Fintype V] [iDecEqV : DecidableEq V]
-variable {ID : Type u} [iFinD : Fintype ID] [iDecEqID : DecidableEq ID]
+variable (V : Type u) [iFinV : Fintype V] [iDecEqV : DecidableEq V]
+variable (ID : Type u) [iFinD : Fintype ID] [iDecEqID : DecidableEq ID]
 
 
 structure LOCAL_Network extends SimplePN V where
   id_fun : V → ID
 
-structure DLOCAL_Network extends @LOCAL_Network V ID where
+structure DLOCAL_Network  extends LOCAL_Network V ID where
   unique_id : @Function.Injective V ID id_fun
 
-abbrev DLOCAL_Adj (N : LOCAL_Network) (id₁ id₂ : α) :=
+abbrev DLOCAL.Adj (N : LOCAL_Network V ID) (v w : V) := N.toSimplePN.Adj v w
+abbrev DLOCAL.Adj_ID (N : LOCAL_Network V ID) (id₁ id₂ : ID) :=
   ∃ v w : V, N.id_fun v = id₁ ∧ N.id_fun w = id₂ ∧ N.Adj v w
 
-abbrev VBall (G : SimpleGraph V) (v : V) (r : ℕ) := {w : V | G.edist v w ≤ r}
+abbrev SimpleGraph.VBall (G : SimpleGraph V) (v : V) (r : ℕ) := {w : V | G.edist v w ≤ r}
 
-abbrev EBall (G : SimpleGraph V) (v : V) (r : ℕ)
+abbrev SimpleGraph.EBall (G : SimpleGraph V) (v : V) (r : ℕ)
   : V → V → Prop :=
   fun x y => G.edist v x ≤ r ∧ G.edist v y ≤ r ∧ G.Adj x y
 
@@ -28,13 +29,13 @@ open SimpleGraph
 
 omit iFinV iDecEqV in
 lemma EBall_symm (G : SimpleGraph V) (v : V) (r : ℕ)
-  : Symmetric (EBall G v r) := by
+  : Symmetric (EBall V G v r) := by
   simp [Symmetric, EBall]
   intro x y distx disty adj
   all_goals try tauto
 
-#print Subgraph
-#print IsSubgraph
+#print SimpleGraph.Subgraph
+#print SimpleGraph.IsSubgraph
 
 abbrev GBall (G : SimpleGraph V) (v : V) (r : ℕ) : SimpleGraph.Subgraph G where
   symm := by
@@ -42,8 +43,8 @@ abbrev GBall (G : SimpleGraph V) (v : V) (r : ℕ) : SimpleGraph.Subgraph G wher
     apply EBall_symm
     assumption
 
-  verts := VBall G v r
-  Adj x y := EBall G v r x y
+  verts := VBall V G v r
+  Adj x y := EBall V G v r x y
   edge_vert := by
     intro x y
     simp
