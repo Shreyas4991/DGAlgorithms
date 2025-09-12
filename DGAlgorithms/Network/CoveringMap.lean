@@ -13,7 +13,7 @@ structure CoveringMap (G : PNNetwork V) (G' : PNNetwork V') where
   map : V → V'
   map_surj : Function.Surjective map
   map_deg : ∀ v : V, G.deg v = G'.deg (map v)
-  map_adj : ∀ p : Port V,
+  map_adj : ∀ p : Port V, G.PortValid p →
     let mapPort : Port V → Port V' := fun p ↦ (map p.node, p.port)
     mapPort (G.pmap p) = G'.pmap (mapPort p)
 
@@ -53,6 +53,16 @@ def doubleCover.isCoveringMap (N : PNNetwork V) : CoveringMap (doubleCover N) N 
 
 end Examples
 
+def CoveringMap.of_equiv (N₁ N₂ : PNNetwork V) (h_equiv : N₁ ≈ N₂) : CoveringMap N₁ N₂ where
+  map := id
+  map_surj := Function.surjective_id
+  map_deg := by
+    apply congrFun
+    exact h_equiv.left
+  map_adj := by
+    intro p hp
+    exact h_equiv.right p.node p.port hp
+
 def CoveringMap.comp (m₂ : CoveringMap G₂ G₃) (m₁ : CoveringMap G₁ G₂) : CoveringMap G₁ G₃ where
   map := m₂.map ∘ m₁.map
   map_surj := Function.Surjective.comp m₂.map_surj m₁.map_surj
@@ -61,10 +71,14 @@ def CoveringMap.comp (m₂ : CoveringMap G₂ G₃) (m₁ : CoveringMap G₁ G�
     rw [m₁.map_deg, m₂.map_deg]
     rfl
   map_adj := by
-    intro p
+    intro p hp
     dsimp
     rw [←m₂.map_adj (m₁.map p.node, p.port)]
     rw [←m₁.map_adj]
+    exact hp
+    unfold PNNetwork.PortValid at *
+    rw [←m₁.map_deg]
+    exact hp
 
 infixr:90 " ∘ "  => CoveringMap.comp
 
