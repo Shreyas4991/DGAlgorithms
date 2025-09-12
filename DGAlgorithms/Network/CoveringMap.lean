@@ -1,6 +1,5 @@
 import Mathlib
 import DGAlgorithms.Network.PNNetwork
--- import Canonical
 
 namespace DGAlgorithms
 
@@ -85,3 +84,20 @@ infixr:90 " ∘ "  => CoveringMap.comp
 @[simp] lemma CoveringMap.comp_self (m : CoveringMap G G') : m ∘ CoveringMap.self G = m := by rfl
 
 @[simp] lemma CoveringMap.self_comp (m : CoveringMap G G') : CoveringMap.self G' ∘ m = m := by rfl
+
+inductive LocallyCovering (G : PNNetwork V) (G' : PNNetwork V') : ℕ → V → V' → Type where
+  | refl (v : V) (v' : V') (h : G.deg v = G'.deg v') : LocallyCovering G G' 0 v v'
+  | succ (v : V) (v' : V') (hdeg : G.deg v = G'.deg v') (h' : ∀ i < G.deg v, LocallyCovering G G' r (G.pmap (v, i)).node (G'.pmap (v', i)).node) : LocallyCovering G G' r.succ v v'
+
+
+@[refl] def LocallyCovering.rfl : LocallyCovering G G 0 v v := LocallyCovering.refl v v (Eq.refl _)
+
+-- @[trans]
+-- def LeocallyCovering.trans (cm₁ : LocallyCovering G₁ G₂ r v₁ v₂) (cm₂ : LocallyCovering G₂ G₃ r v₂ v₃) : LocallyCovering G₁ G₂ r v₁ v₃ :=
+--   r.recOn
+--     (
+--       -- .refl v₁ v₃ (Eq.trans cm₁.h)
+--       sorry
+--     )
+--     sorry
+--   -- sorry
