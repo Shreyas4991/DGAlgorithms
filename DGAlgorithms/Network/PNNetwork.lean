@@ -20,6 +20,12 @@ abbrev Port.port {V : Type u} (vp : Port V) : ℕ := vp.snd
 /-- Ports can also be modelled as dependent pairs. -/
 abbrev FinPort (V : Type u) (deg : V → ℕ) := (v : V) × Fin (deg v)
 
+abbrev FinPort.node {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : V := vp.fst
+
+abbrev FinPort.port {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : Fin (deg vp.node) := vp.snd
+
+abbrev FinPort.port' {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : ℕ := vp.snd
+
 abbrev Port.to_FinPort (p : Port V) (deg : V → ℕ) (h : p.port < deg p.node) : FinPort V deg :=
   ⟨p.node, ⟨p.port, h⟩⟩
 
@@ -76,6 +82,20 @@ def PNNetwork.mk' {V : Type u} {deg : V → ℕ} (pmap : FinPort V deg → FinPo
     split at hvp'
     all_goals assumption
 
+def PNNetwork.eq {V : Type*} (N₁ N₂ : PNNetwork V) : Prop :=
+  N₁.deg = N₂.deg ∧ ∀ v : V, ∀ i < N₁.deg v, N₁.pmap (v, i) = N₂.pmap (v, i)
+
+def PNNetwork.eq.equivalence {V : Type*} : Equivalence (PNNetwork.eq (V := V)) where
+  refl := by simp [eq]
+  symm := by simp_all [eq]
+  trans := by simp_all [eq]
+
+instance PNNetwork.setoid (V : Type*) : Setoid (PNNetwork V) where
+   r:= PNNetwork.eq
+   iseqv := PNNetwork.eq.equivalence
+
+-- def PNNetwork' (V : Type*) := Quotient (PNNetwork.setoid (V := V))
+
 /-- Validity of a port.
 
 A port is valid iff its port number is less than the degree of the node.
@@ -108,6 +128,45 @@ abbrev PNNetwork.Port'.port' {V : Type u} {N : PNNetwork V} (vp : N.Port') : Fin
     have := N.is_well_defined _ h
     exact this
     exact h
+
+
+def PNNetwork.pmap' (N : PNNetwork V) : FinPort V N.deg → FinPort V N.deg :=
+  fun ⟨v, p, hp⟩ => ⟨(N.pmap (v, p)).node, (N.pmap (v, p)).port, (is_well_defined_iff N (v, p)).mpr hp⟩
+
+lemma PNNetwork.pmap'.involutive (N : PNNetwork V) : Function.Involutive N.pmap' := by
+  intro ⟨v, p, hp⟩
+  unfold pmap'
+  dsimp
+  congr
+  all_goals simp [N.pmap_involutive' (v, p) hp]
+
+lemma PNNetwork.mk'_eq (N : PNNetwork V) : PNNetwork.mk' N.pmap' (PNNetwork.pmap'.involutive N) ≈ N := by
+  constructor
+  · rfl
+  · intro v i hi
+    unfold pmap' pmap mk'
+    simp
+    intro h_contra
+    absurd h_contra
+    simp
+    exact hi
+
+lemma PNNetwork.mk'_pmap'_eq {deg : V → ℕ} (pmap : FinPort V deg → FinPort V deg) (h : Function.Involutive pmap) : (PNNetwork.mk' pmap h).pmap' = pmap := by
+  unfold mk' pmap'
+  simp
+  ext ⟨v, p, hp⟩
+  simp
+  split_ifs with h
+  rfl
+  simp_all
+  simp
+  split_ifs with h
+  apply (Fin.heq_ext_iff _).mpr
+  simp
+  congr
+  simp_all
+  congr
+  simp_all
 
 /-- A Simple Port-Numbered Network.
 
@@ -391,9 +450,9 @@ def PNNetwork.boxProd (G : PNNetwork V) (G' : PNNetwork V') : PNNetwork (V × V'
 /-- Box product of PNNetworks. -/
 infixl:70 " □ " => PNNetwork.boxProd
 
-instance  (G : PNNetwork V) (G' : PNNetwork V') [SimplePN G] [SimplePN G'] : SimplePN (G □ G') := sorry
+-- instance  (G : PNNetwork V) (G' : PNNetwork V') [SimplePN G] [SimplePN G'] : SimplePN (G □ G') := sorry
 
-lemma box_prod_comm (G : PNNetwork V) (G' : PNNetwork V') [SimplePN G] [SimplePN G'] : (G □ G').to_SimpleGraph = (G.to_SimpleGraph □ G'.to_SimpleGraph) := by
-  ext v v'
+-- lemma box_prod_comm (G : PNNetwork V) (G' : PNNetwork V') [SimplePN G] [SimplePN G'] : (G □ G').to_SimpleGraph = (G.to_SimpleGraph □ G'.to_SimpleGraph) := by
+--   ext v v'
 
-  sorry
+--   sorry
