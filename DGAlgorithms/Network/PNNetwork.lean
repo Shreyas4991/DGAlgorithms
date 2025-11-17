@@ -456,3 +456,20 @@ infixl:70 " □ " => PNNetwork.boxProd
 --   ext v v'
 
 --   sorry
+
+inductive PNWalk {V : Type u} (N : PNNetwork V) : V → V → Type u
+  | nil (v : V) : PNWalk N v v
+  | cons (v : V) (i : ℕ) (h : i < N.deg v) (tail : PNWalk N ((N.pmap (v, i)).node) u) : PNWalk N v u
+
+def PNWalk.length : PNWalk N u v → ℕ
+  | nil _ => 0
+  | cons _ _ _ tail => tail.length + 1
+
+@[simp]
+lemma PNWalk.length_nil : (PNWalk.nil (N := N) v).length = 0 := by rfl
+
+@[simp]
+lemma PNWalk.length_cons : (PNWalk.cons (N := N) v i h tail).length = tail.length + 1 := by rfl
+
+noncomputable def PNNetwork.edist (N : PNNetwork V) (u v : V) : ℕ∞ :=
+  ⨅ w : PNWalk N u v, w.length
