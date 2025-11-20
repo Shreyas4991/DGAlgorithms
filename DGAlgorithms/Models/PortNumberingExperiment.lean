@@ -1,82 +1,105 @@
 import Mathlib
 import DGAlgorithms.Network.PNNetworkExperiment
-import DGAlgorithms.Network.CoveringMap
+import DGAlgorithms.Network.CoveringMapExperiment
 
 namespace DGAlgorithms
 
 
 
+
 -- Algorithm ≃ I → O
-structure PNAlgorithm (I O : Type*) where
+structure PNAlgorithm (V : Type u) (Port : V → Type v)
+  (I O : Type*) where
   Msg : Type*
   State : Type*
   stopStates : Set State
-  init : ℕ → I → State
-  send : (d : ℕ) → State → ℕ → Msg
-  recv : (d : ℕ) → State → (Fin d → Msg) → State
-  stopping_condition : ∀ d : ℕ, ∀ y : Fin d → Msg, ∀ s : State, s ∈ stopStates → recv d s y = s
+  init : I → State -- Map each node input and each port on the node to a state?.
+  send : State → Port v → Msg -- from the current state, compute the message to send to a given port
+  recv : State → (Port v → Msg) → State -- form the current state and port vector, compute the next state
+  stopping_condition : ∀ msgVec : Port v → Msg, ∀ s : State, s ∈ stopStates → recv s msgVec = s
   output : (state : State) → state ∈ stopStates → O -- TODO: State → O
 
 section Examples
+variable {V : Type u} {Port : V → Type v} {N : PNNetwork V Port}
 
-def PNalgorithm.id {A : Type*} : PNAlgorithm A A where
+def PNalgorithm.id {A : Type*} (v : V) : PNAlgorithm V Port A A where
   Msg := Unit
   State := A
   stopStates := Set.univ
-  init := fun d v ↦ v
-  send := fun _ _ _ ↦ ()
-  recv := fun _ v _ ↦ v
+  init := fun a ↦ a
+  send := fun _ _ ↦ ()
+  recv := fun s _ ↦ s
   stopping_condition := by simp
   output := fun v _ ↦ v
 
 
-def PNalgorithm.local_map (f : S → S'): PNAlgorithm S S' where
+def PNalgorithm.local_map (f : I → O) : PNAlgorithm V Port I O where
   Msg := Unit
-  State := S'
+  State := O
   stopStates := Set.univ
-  init := fun d v ↦ f v
-  send := fun _ _ _ ↦ ()
-  recv := fun _ v _ ↦ v
+  init := fun v ↦ f v
+  send := fun _ _ ↦ ()
+  recv := fun p _ ↦ p
   stopping_condition := by simp
   output := fun v _ ↦ v
 
 end Examples
 
 /-- A configuration of an algorithm is the collection of states at all nodes. -/
-abbrev PNAlgorithm.Cfg (𝔸 : PNAlgorithm I O) (V : Type u) := V → 𝔸.State
+abbrev PNAlgorithm.Cfg  (𝔸 : PNAlgorithm V P I O)  := V → 𝔸.State
 
-def PNAlgorithm.initialize (A : PNAlgorithm I O) {V : Type*} (N : PNNetwork V) (i : V → I) : A.Cfg V :=
-  fun v ↦ A.init (N.deg v) (i v)
+def PNAlgorithm.initCfg {V : Type*} {P : V → Type v}
+    (A : PNAlgorithm V P I O)
+    (i : V → I) : Cfg A :=
+    fun (v : V) ↦ A.init (i v)
 
-def PNAlgorithm.step (A : PNAlgorithm I O) (N : PNNetwork V) (cfg : A.Cfg V) : A.Cfg V :=
+def PNAlgorithm.step (A : PNAlgorithm V P I O) (N : PNNetwork V P) (cfg : Cfg A) : A.Cfg :=
   fun v ↦
-    A.recv (N.deg v) (cfg v) (fun p ↦ let u := N.pmap (v, p); A.send (N.deg u.node) (cfg u.node) u.port)
+    A.recv (cfg v) (fun p ↦ let u := N.pmap ⟨v, p⟩; A.send (cfg u.node) u.port)
 
-lemma PNAlgorithm.step.obey_network_equiv (A : PNAlgorithm I O) (N₁ N₂ : PNNetwork V) : N₁ ≈ N₂ → A.step N₁ = A.step N₂ := by
+lemma PNAlgorithm.step.obey_network_equiv (A : PNAlgorithm V P I O) (N₁ N₂ : PNNetwork V P) : N₁ ≈ N₂ → A.step N₁ = A.step N₂ := by
   intro hequiv
-  ext cfg v
   unfold step
-  have hequiv : PNNetwork.eq N₁ N₂ := hequiv
-  unfold PNNetwork.eq at hequiv
-  cases' hequiv with hdeg hpmap
-  rw [←hdeg]
-  congr! with p
+  apply funext
+  intro config
+  apply funext
+  intro v
+  simp_all
+  specialize hequiv v
+  apply congrArg
+  case h.h.h =>
+    simp_rw [hequiv]
+    rw??
+
+
+
+
+
+
+  -- intro hequiv
+  -- ext cfg
+  -- unfold step
+  -- have hequiv : PNNetwork.eq N₁ N₂ := hequiv
+  -- unfold PNNetwork.eq at hequiv
+  -- cases' hequiv with hdeg hpmap
+  -- rw [←hdeg]
+  -- congr! with p
 
   rw [hpmap]
   exact p.isLt
 
-def PNAlgorithm.eval' (A : PNAlgorithm I O) (N : PNNetwork V) (i : V → I) : ℕ → A.Cfg V
-  | 0 => A.initialize N i
+def PNAlgorithm.eval' (A : PNAlgorithm V P I O) (N : PNNetwork V P) (i : V → I) : ℕ → A.Cfg
+  | 0 => A.initCfg i
   | k+1 => A.step N (A.eval' N i k)
 
 /-- A "proof" that `A` evaluates to `e` when starting from `s`. -/
-structure PNAlgorithm.EvolvesTo (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) where
+structure PNAlgorithm.EvolvesTo (A : PNAlgorithm V P I O) (N : PNNetwork V P)  (s e : A.Cfg) where
   steps : ℕ
   evals_in_steps : (A.step N)^[steps] s = e
 
 -- #print Nat.rec
-def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm I O) (N : PNNetwork V) {s e : A.Cfg V} (heval : A.EvolvesTo N s e)
-  {motive : A.Cfg V → Sort u} (hbase : motive s) (hstep : ∀ {s' : A.Cfg V}, motive s' → motive (A.step N s')) : motive e :=
+def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm V P I O) (N : PNNetwork V P) {s e : A.Cfg} (heval : A.EvolvesTo N s e)
+  {motive : A.Cfg → Sort u} (hbase : motive s) (hstep : ∀ {s' : A.Cfg}, motive s' → motive (A.step N s')) : motive e :=
     let rec recursion (k : ℕ) : motive ((A.step N)^[k] s) := match k with
       | 0 => hbase
       | k+1 =>
@@ -84,7 +107,7 @@ def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm I O) (N : PNNetwork V) {s e
     heval.evals_in_steps ▸ recursion heval.steps
 
 /-- A "proof" that `A` reaches `e` from `s` in at most given number of steps. -/
-structure PNAlgorithm.EvolvesToInTime (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (m : ℕ) extends A.EvolvesTo N s e where
+structure PNAlgorithm.EvolvesToInTime (A : PNAlgorithm V P I O) (N : PNNetwork V P) (s e : A.Cfg) (m : ℕ) extends A.EvolvesTo N s e where
   steps_le_m : steps ≤ m
 
 @[refl]
@@ -115,12 +138,12 @@ def PNAlgorithm.EvolvesToInTime.trans (h₁ : PNAlgorithm.EvolvesToInTime A N a 
     grw [h₁.steps_le_m, h₂.steps_le_m]
 
 /-- A configuration is stopping if all nodes are in a stopping state. -/
-def PNAlgorithm.Cfg.IsStopping {A : PNAlgorithm I O} (c : A.Cfg V) : Prop :=
+def PNAlgorithm.Cfg.IsStopping {A : PNAlgorithm V P I O} (c : A.Cfg) : Prop :=
   ∀ v : V, c v ∈ A.stopStates
 
 /-- Once an algorithm has stopped, the configuration won't change anymore. -/
 @[simp]
-lemma PNAlgorithm.step_id_if_stopping {A : PNAlgorithm I O} {N : PNNetwork V} {c : A.Cfg V} (h : c.IsStopping) : A.step N c = c := by
+lemma PNAlgorithm.step_id_if_stopping {A : PNAlgorithm V P I O} {N : PNNetwork V P} {c : A.Cfg} (h : c.IsStopping) : A.step N c = c := by
   unfold step
   ext x
   apply A.stopping_condition
@@ -128,7 +151,7 @@ lemma PNAlgorithm.step_id_if_stopping {A : PNAlgorithm I O} {N : PNNetwork V} {c
 
 /-- Continuing evaluation after a stopping configuration does not modify the configuration anymore. -/
 @[simp]
-lemma PNAlgorithm.Stopping_EvalsTo_eq_self {A : PNAlgorithm I O} {N : PNNetwork V} {c c' : A.Cfg V} (h : c.IsStopping) : A.EvolvesTo N c c' → c = c' := by
+lemma PNAlgorithm.Stopping_EvalsTo_eq_self {A : PNAlgorithm V P I O} {N : PNNetwork V P} {c c' : A.Cfg} (h : c.IsStopping) : A.EvolvesTo N c c' → c = c' := by
   intro h'
   trans (A.step N)^[h'.steps] c
   · -- Use induction in number of steps and show that after each step, the expression is still c
@@ -138,41 +161,41 @@ lemma PNAlgorithm.Stopping_EvalsTo_eq_self {A : PNAlgorithm I O} {N : PNNetwork 
       exact hn
   · exact h'.evals_in_steps
 
-def PNAlgorithm.Cfg.output {A : PNAlgorithm I O} {c : A.Cfg V} (h : c.IsStopping) : V → O :=
+def PNAlgorithm.Cfg.output {A : PNAlgorithm V P I O} {c : A.Cfg} (h : c.IsStopping) : V → O :=
   fun v ↦ A.output (c v) (h v)
 
 
-structure PNAlgorithm.EvalsTo (A : PNAlgorithm I O) (N : PNNetwork V) (i : V → I) (o : V → O) where
-  end_state : A.Cfg V
+structure PNAlgorithm.EvalsTo (A : PNAlgorithm V P I O) (N : PNNetwork V P) (i : V → I) (o : V → O) where
+  end_state : A.Cfg
   stops : end_state.IsStopping
   output_correct : end_state.output stops = o
-  evolves : EvolvesTo A N (A.initialize N i) end_state
+  evolves : EvolvesTo A N (A.initCfg i) end_state
 
 
-structure PNAlgorithm.EvalsToStopping (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) extends EvolvesTo A N s e where
+structure PNAlgorithm.EvalsToStopping (A : PNAlgorithm V P I O) (N : PNNetwork V P) (s e : A.Cfg) extends EvolvesTo A N s e where
   stopping : e.IsStopping
 
-def PNAlgorithm.EvalsToStopping.output {A : PNAlgorithm I O} {N : PNNetwork V} {s e : A.Cfg V} (h : A.EvalsToStopping N s e) : V → O :=
+def PNAlgorithm.EvalsToStopping.output {A : PNAlgorithm V P I O} {N : PNNetwork V P} {s e : A.Cfg} (h : A.EvalsToStopping N s e) : V → O :=
   fun v => A.output (e v) (h.stopping v)
 
 
-structure PNAlgorithm.EvalsToStoppingInTime (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (m : ℕ) extends EvalsToStopping A N s e, EvolvesToInTime A N s e m where
+structure PNAlgorithm.EvalsToStoppingInTime (A : PNAlgorithm V P I O) (N : PNNetwork V P) (s e : A.Cfg) (m : ℕ) extends EvalsToStopping A N s e, EvolvesToInTime A N s e m where
 
 
 /-- Run two PNAlgorithms in parallel. -/
-def PNAlgorithm.parallel (A₁ : PNAlgorithm I₁ O₁) (A₂ : PNAlgorithm I₂ O₂) : PNAlgorithm (I₁ × I₂) (O₁ × O₂) where
+def PNAlgorithm.parallel (A₁ : PNAlgorithm V P I₁ O₁) (A₂ : PNAlgorithm V P I₂ O₂) : PNAlgorithm V P (I₁ × I₂) (O₁ × O₂) where
   Msg := A₁.Msg × A₂.Msg
   State := A₁.State × A₂.State
   stopStates := A₁.stopStates ×ˢ A₂.stopStates
-  init := fun d i ↦ (A₁.init d i.fst, A₂.init d i.snd)
-  send := fun d s p ↦ (A₁.send d s.fst p, A₂.send d s.snd p)
-  recv := fun d s m ↦ (A₁.recv d s.fst (Prod.fst ∘ m), A₂.recv d s.snd (Prod.snd ∘ m))
+  init := fun i ↦ (A₁.init i.fst, A₂.init i.snd)
+  send := fun s p ↦ (A₁.send s.fst p, A₂.send s.snd p)
+  recv := fun s m ↦ (A₁.recv s.fst (Prod.fst ∘ m), A₂.recv s.snd (Prod.snd ∘ m))
   stopping_condition := by
     intro d m s h
     ext
-    · apply A₁.stopping_condition d (Prod.fst ∘ m) s.1
+    · apply A₁.stopping_condition (Prod.fst ∘ m) s.1
       simp_all
-    · apply A₂.stopping_condition d (Prod.snd ∘ m) s.2
+    · apply A₂.stopping_condition (Prod.snd ∘ m) s.2
       simp_all
   output := fun s h ↦ (A₁.output s.fst (by simp_all), A₂.output s.snd (by simp_all))
 
@@ -201,7 +224,7 @@ def PNAlgorithm.parallel (A₁ : PNAlgorithm I₁ O₁) (A₂ : PNAlgorithm I₂
 
 
 -- Covering maps
-def CoveringMap.expand_cfg {N₁ : PNNetwork V₁} {N₂ : PNNetwork V₂} (cm : CoveringMap N₁ N₂) : (V₂ → S) → V₁ → S :=
+def CoveringMap.expand_cfg {N₁ : PNNetwork V₁ (fun _ => P₁)} {N₂ : PNNetwork V₂ (fun _ => P₂)} (cm : CoveringMap N₁ N₂) : (V₂ → S) → V₁ → S :=
   fun cfg v ↦ cfg (cm.map v)
 
 @[simp]

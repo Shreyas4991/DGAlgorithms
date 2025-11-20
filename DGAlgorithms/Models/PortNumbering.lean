@@ -226,7 +226,7 @@ def PNNetwork.cycle (n : ℕ) : PNNetwork (Fin (n+1)) :=
   PNNetwork.mk'
   (deg := fun _ ↦ 2)
   (
-    fun p ↦ ite (p.port == 0) ⟨p.node - 1, 1⟩ ⟨p.node + 1, 0⟩
+    fun p ↦ if (p.port == 0) then ⟨p.node - 1, 1⟩ else ⟨p.node + 1, 0⟩
   )
   (by
     intro vp
@@ -248,7 +248,11 @@ def PNNetwork.cycle (n : ℕ) : PNNetwork (Fin (n+1)) :=
 
 def PNNetwork.cycle_cover (n m : ℕ) (h : (n + 1) ∣ (m + 1)) : CoveringMap (cycle m) (cycle n) where
   map := fun v => Fin.ofNat (n+1) v
-  map_surj := sorry
+  map_surj := by
+    simp [Fin.ofNat_eq_cast, Function.Surjective]
+    intro b
+    
+    sorry
   map_deg := sorry
   map_adj := sorry
 

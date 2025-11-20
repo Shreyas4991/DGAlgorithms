@@ -7,13 +7,13 @@ namespace DGAlgorithms
 
 
 
-abbrev PortProj (V : Type u) (P : Type v) (v : V)  := {p : Port V P // p.node = v}
+abbrev PortProj (V : Type u) (P : Type v) (v : V)  := {p : Port V (fun _ => P) // p.node = v}
 /-- A covering map is a surjective, degree-preserving and adjacency-preserving
 map between networks.
 
 Note that the covering map also preserves the order of adjacent ports.
 -/
-structure CoveringMap (N : PNNetwork V P) (N' : PNNetwork V' P) where
+structure CoveringMap (N : PNNetwork V (fun _ => P)) (N' : PNNetwork V' (fun _ => P)) where
   φ : V → V'
   φ_hom : ∀ v w : V, ∀ i j : P, N.pmap ⟨v, i⟩ = ⟨w, j⟩ → N'.pmap ⟨φ v, i⟩ = ⟨φ w, j⟩
   φ_surj : Function.Surjective φ
@@ -30,8 +30,8 @@ structure CoveringMap (N : PNNetwork V P) (N' : PNNetwork V' P) where
 --     mapPort (G.pmap p) = G'.pmap (mapPort p)
 
 /-- Lift the map from vertices of the network to its ports. -/
-def CoveringMap.mapPort(G : PNNetwork V P) (G' : PNNetwork V' P)
-  (CM : CoveringMap G G') : Port V P → Port V' P :=
+def CoveringMap.mapPort(G : PNNetwork V (fun _ => P)) (G' : PNNetwork V' (fun _ => P))
+  (CM : CoveringMap G G') : Port V (fun _ => P) → Port V' (fun _ => P) :=
   fun p =>
     {
       node := CM.φ p.node
@@ -47,7 +47,7 @@ def CoveringMap.mapPort(G : PNNetwork V P) (G' : PNNetwork V' P)
 
 section Examples
 
-def CoveringMap.self (G : PNNetwork V P) : CoveringMap G G where
+def CoveringMap.self (G : PNNetwork V ((fun _ => P))) : CoveringMap G G where
   φ := id
   φ_hom := by
     intro v w i j
@@ -68,7 +68,7 @@ def CoveringMap.self (G : PNNetwork V P) : CoveringMap G G where
 
 def doubleCover
   {V : Type u} {P : Type v}
-  (N : PNNetwork V P) : PNNetwork (V × Bool) P where
+  (N : PNNetwork V (fun _ => P)) : PNNetwork (V × Bool) (fun _ => P) where
   pmap := fun ⟨(v, boolean), port⟩ =>
     let ⟨u, port₂⟩ := N.pmap ⟨v, port⟩
     ⟨⟨u, not boolean⟩, port₂⟩
@@ -78,7 +78,7 @@ def doubleCover
     constructor <;> simp [N.pmap_involutive]
     constructor <;> simp [N.pmap_involutive]
 
-def doubleCover.isCoveringMap (N : PNNetwork V P) : CoveringMap (doubleCover N) N where
+def doubleCover.isCoveringMap (N : PNNetwork V (fun _ => P)) : CoveringMap (doubleCover N) N where
   φ v := v.fst
   φ_hom := by
     intro v w i j
@@ -118,7 +118,7 @@ def doubleCover.isCoveringMap (N : PNNetwork V P) : CoveringMap (doubleCover N) 
 end Examples
 
 
-def CoveringMap.of_equiv (N₁ N₂ : PNNetwork V P) (h_equiv : N₁ ≈ N₂) : CoveringMap N₁ N₂ where
+def CoveringMap.of_equiv (N₁ N₂ : PNNetwork V ((fun _ => P))) (h_equiv : N₁ ≈ N₂) : CoveringMap N₁ N₂ where
   φ := id
   φ_surj := Function.surjective_id
   φ_local_iso := by
@@ -163,7 +163,7 @@ infixr:90 " ∘ "  => CoveringMap.comp
 
 @[simp] lemma CoveringMap.self_comp (m : CoveringMap G G') : CoveringMap.self G' ∘ m = m := by rfl
 
-inductive LocallyCovering (G : PNNetwork V P) (G' : PNNetwork V' P) : P → V → V' → Type where
+inductive LocallyCovering (G : PNNetwork V (fun _ => P)) (G' : PNNetwork V' (fun _ => P)) : P → V → V' → Type where
   | refl (v : V) (v' : V') (h : PortProj V P v ≃ PortProj V' P v') : LocallyCovering G G' p v v'
   | succ (v : V) (v' : V') (h : PortProj V P v ≃ PortProj V' P v') (h' : ∀ p : P, LocallyCovering G G' r (G.pmap ⟨v, p⟩).node (G'.pmap ⟨v', p⟩).node) : LocallyCovering G G' p v v'
 

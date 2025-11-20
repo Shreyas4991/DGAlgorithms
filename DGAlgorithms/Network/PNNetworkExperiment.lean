@@ -13,9 +13,9 @@ namespace DGAlgorithms
 
 /-- A shorthand for the type of a port. -/
 
-structure Port (V : Type u) (P : Type v) where
+structure Port (V : Type u) (P : V → Type v) where
   node : V
-  port : P
+  port : P node
 
 
 /-- A Port-Numbered Network.
@@ -29,18 +29,18 @@ number. In particular, this differes from the more typical definition where a
 port is a dependent pair `(v : V) × Fin (deg v)`. We extract this to
 `PNNetwork.IsWellDefined`.
  -/
-structure PNNetwork (V : Type u) (P : Type v) where
+structure PNNetwork (V : Type u) (P : V → Type v) where
 
   /-- Map from a given port of a node to the other end of the edge. -/
   pmap : Port V P → Port V P
   /-- Ensure that ports are properly connected. -/
-  pmap_involutive : ∀ v : V, ∀ i : P, pmap (pmap ⟨v, i⟩) = ⟨v, i⟩
+  pmap_involutive : ∀ v : V, ∀ i : P v, pmap (pmap ⟨v, i⟩) = ⟨v, i⟩
 
 
-variable {V : Type*} {P : Type*}
+variable {V : Type*} {P : V → Type*}
 
 def PNNetwork.eq  (N₁ N₂ : PNNetwork V P) : Prop :=
-  ∀ v : V, ∀ i : P , N₁.pmap ⟨v, i⟩ = N₂.pmap ⟨v, i⟩
+  ∀ v : V, ∀ i : P v , N₁.pmap ⟨v, i⟩ = N₂.pmap ⟨v, i⟩
 
 def PNNetwork.eq.equivalence : Equivalence (@PNNetwork.eq  V P) where
   refl := by simp [eq]
@@ -66,14 +66,14 @@ duplicate edges.
 -/
 class SimplePN (N : PNNetwork V P) : Prop where
   /-- There are no edges from a node to itself. -/
-  loopless : ∀ v : V, ∀ i j : P, N.pmap ⟨v, i⟩ ≠ ⟨v, j⟩
+  loopless : ∀ v : V, ∀ i j : P v, N.pmap ⟨v, i⟩ ≠ ⟨v, j⟩
   /-- There is at most one edge between any pair of nodes. -/
-  simple : ∀ v : V, ∀ i j : P, (N.pmap ⟨v, i⟩).node = (N.pmap ⟨v, j⟩).node → i = j
+  simple : ∀ v : V, ∀ i j : P v, (N.pmap ⟨v, i⟩).node = (N.pmap ⟨v, j⟩).node → i = j
 
 variable (N : PNNetwork V P)
 
 lemma SimplePN.simple_injective [s : SimplePN N] (v : V) :
-    Function.Injective fun (i : P) ↦ (N.pmap ⟨v, i⟩).node := by
+    Function.Injective fun (i : P v) ↦ (N.pmap ⟨v, i⟩).node := by
   apply s.simple v
 
 /-- Adjacency relation for a network.
@@ -81,11 +81,11 @@ lemma SimplePN.simple_injective [s : SimplePN N] (v : V) :
 See [Mathlib.SimpleGraph.Adj] for comparison.
 -/
 def PNNetwork.Adj (u v : V) : Prop :=
-  ∃ i j : P, N.pmap ⟨u, i⟩ = ⟨v, j⟩
+  ∃ i : P u, ∃ j : P v, N.pmap ⟨u, i⟩ = ⟨v, j⟩
 
 /-- Another way to define adjacency using only one exists. -/
 def PNNetwork.Adj' (u v : V) : Prop :=
-  ∃ i : P, (N.pmap ⟨u, i⟩).node = v
+  ∃ i : P u, (N.pmap ⟨u, i⟩).node = v
 
 /-- Both definitions of adjacency are equal. -/
 lemma PNNetwork.Adj_eq_Adj': Adj N = Adj' N := by
@@ -147,7 +147,7 @@ original network.
 /-- Well-defined networks always induce a locally finite graph. -/
 noncomputable instance PNNetwork.to_SimpleGraph_LocallyFinite
   {N : PNNetwork V P}
-  [finportmap : Fintype P] [SimplePN N]
+  [finportmap : ∀ v : V, Fintype (P v)] [SimplePN N]
   : N.to_SimpleGraph.LocallyFinite := by
   intro v
   unfold SimpleGraph.neighborSet to_SimpleGraph
@@ -177,15 +177,15 @@ noncomputable instance PNNetwork.to_SimpleGraph_LocallyFinite
 network.
 -/
 @[simp] lemma PNNetwork.to_SimpleGraph_degree_eq_deg
-  (v : V) [Fintype P]
+  (v : V) [∀ v, Fintype (P v)]
   (N : PNNetwork V P) [iS : SimplePN N]
   [SimpleGraph.LocallyFinite (N.to_SimpleGraph)]
-  : N.to_SimpleGraph.degree v = Fintype.card P := by
+  : N.to_SimpleGraph.degree v = Fintype.card (P v) := by
   -- Unfold the definition of degree
   rw [SimpleGraph.degree, SimpleGraph.neighborFinset, Set.toFinset_card]
 
   -- We provide a bijection from `α v` to neighbors of `v`
-  let f : P → {w : V // N.Adj v w } := fun i ↦ ⟨(N.pmap ⟨v, i⟩).node, by
+  let f : P v → {w : V // N.Adj v w } := fun i ↦ ⟨(N.pmap ⟨v, i⟩).node, by
     use i
     use (N.pmap ⟨v, i⟩).port
   ⟩
@@ -308,7 +308,7 @@ abbrev prod_fun (f : a → β) (g : γ → δ) : a × γ → β × δ:= fun (x,y
 
 def PNNetwork.boxProd
   (G : PNNetwork V P)
-  (G' : PNNetwork V' P') : PNNetwork (V × V') (P × P') where
+  (G' : PNNetwork V' P') : PNNetwork (V × V') (fun (v,v') ↦ P v × P' v') where
   pmap := fun vv ↦
     let res₁ := G.pmap ⟨vv.node.1, vv.port.1⟩
     let res₂ := G'.pmap ⟨vv.node.2, vv.port.2⟩
@@ -338,9 +338,9 @@ infixl:70 " □ " => PNNetwork.boxProd
 
 --   sorry
 
-inductive PNWalk {V : Type u} {P : Type v} (N : PNNetwork V P) : V → V → Type (max u v)
+inductive PNWalk {V : Type u} {P : V → Type v} (N : PNNetwork V P) : V → V → Type (max u v)
   | nil (v : V) : PNWalk N v v
-  | cons (v : V) (p : P) (tail : PNWalk N ((N.pmap ⟨v, p⟩).node) u) : PNWalk N v u
+  | cons (v : V) (p : P v) (tail : PNWalk N ((N.pmap ⟨v, p⟩).node) u) : PNWalk N v u
 
 def PNWalk.length : PNWalk N u v → ℕ
   | nil _ => 0
