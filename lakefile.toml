@@ -10,7 +10,7 @@ pp.proofs.withType = false
 [[require]]
 name = "cslib"
 scope = "leanprover"
-rev = "stable"
+rev = "v4.28.0"
 
 [[lean_lib]]
 name = "DGAlgorithms"
