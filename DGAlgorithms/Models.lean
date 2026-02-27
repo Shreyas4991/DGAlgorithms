@@ -1,1 +1,2 @@
 import DGAlgorithms.Models.PortNumbering
+import DGAlgorithms.Network.PNNetwork
