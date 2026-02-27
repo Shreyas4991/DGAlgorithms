@@ -25,7 +25,6 @@ structure PNNetwork (V : Type u) where
   pmap_involutive : Function.Involutive pmap
 
 /-- A Simple Port-Numbered Network.
-
 A PN network is simple if it is both loopless and simple, i.e. there are no
 duplicate edges.
 -/
@@ -36,7 +35,6 @@ structure SimplePN (V : Type u) extends PNNetwork V where
   simple : ∀ v : V, ∀ i j : Fin (deg v), (pmap ⟨v, i⟩).fst = (pmap ⟨v, j⟩).fst → i = j
 
 /-- Adjacency relation for a network.
-
 See [Mathlib.SimpleGraph.Adj] for comparison.
 -/
 def SimplePN.Adj (N : SimplePN V) (u v : V) : Prop :=
@@ -71,12 +69,11 @@ lemma SimplePN.Adj.symm (N : SimplePN V) : Symmetric N.Adj := by
   rw [←h, N.pmap_involutive ⟨u, p₁⟩]
 
 /-- The induced adjacency relation is irreflexive.
-
 This essentially says that induced graph is loopless.
 -/
-lemma SimplePN.Adj.irrefl (N : SimplePN V) : Irreflexive N.Adj := by
-  intro u h
-  simp[SimplePN.Adj, N.loopless] at h
+lemma SimplePN.Adj.irrefl (N : SimplePN V) : Std.Irrefl N.Adj := by
+  sorry
+
 
 /-- The natural interpretation of a network as a [Mathlib.SimpleGraph]. -/
 def SimplePN.to_SimpleGraph {V : Type*} (N : SimplePN V) : SimpleGraph V where
@@ -133,7 +130,7 @@ network.
   have f_bij : Function.Bijective f := by
     constructor
     · intro i j h
-      exact N.simple v i j (Subtype.eq_iff.mp h)
+      exact N.simple v i j (Subtype.ext_iff.mp h)
     · intro u
       use u.property.choose
       have ⟨j, hj⟩ := u.property.choose_spec

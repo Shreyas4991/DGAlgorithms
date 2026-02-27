@@ -3,13 +3,14 @@ import Mathlib
 
 namespace DGAlgorithms
 
+namespace SimpleGraph
 variable (G : SimpleGraph V) [Fintype V] [DecidableEq V]
 
 abbrev E (G : SimpleGraph V) := G.edgeSet
 
-def isEdgeSubset (G : SimpleGraph V) (E' : Set (Sym2 V)) := E' ⊆ E G
+def isEdgeSubset (E' : Set (Sym2 V)) := E' ⊆ E G
 
-def ball (G : SimpleGraph V) (center : V) (radius : ℕ) :=
+def ball (center : V) (radius : ℕ) :=
   {v : V | G.dist center v ≤ radius}
 
 noncomputable def diameter (G : SimpleGraph V) :=
@@ -90,8 +91,7 @@ omit [Fintype V] in
 lemma isMaximalImpliesNoIns (Pred : Finset V → Prop) (X : Finset V) :
   isMaximalSet Pred X → isMaximalSet_noInsert Pred X := by
   simp [isMaximalSet, isMaximalSet_noInsert]
-  intro predicate
-  intro h_isMaximal
+  intro predicate h_isMaximal
   constructor
   · exact predicate
   · intro v v_not_X
@@ -246,5 +246,6 @@ theorem minimum_VC_complement_maximum_indep (C : Finset V) :
       rw [VC_complement_indep]
       exact maxInd
 
+end SimpleGraph
 
 end DGAlgorithms

@@ -1,2 +1,1 @@
 import DGAlgorithms.GraphTheory.Basics
-import DGAlgorithms.GraphTheory.FiniteGraphs

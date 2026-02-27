@@ -8,18 +8,9 @@ pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 pp.proofs.withType = false
 
 [[require]]
-name = "mathlib"
-scope = "leanprover-community"
-rev = "v4.18.0"
-
-[[require]]
-name = "checkdecls"
-git = "https://github.com/PatrickMassot/checkdecls.git"
-
-[[require]]
-name = "«doc-gen4»"
-git = "https://github.com/leanprover/doc-gen4"
-rev = "v4.18.0"
+name = "cslib"
+scope = "leanprover"
+rev = "stable"
 
 [[lean_lib]]
 name = "DGAlgorithms"
