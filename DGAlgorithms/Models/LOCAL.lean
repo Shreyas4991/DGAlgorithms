@@ -7,17 +7,25 @@ namespace DGAlgorithms
 #print Computability.Encoding
 
 variable (V : Type u) [iFinV : Fintype V] [iDecEqV : DecidableEq V]
-variable (ID : Type u) [iFinD : Fintype ID] [iDecEqID : DecidableEq ID]
 
 
 structure LOCAL_Network extends PNNetwork V where
-  id_fun : V → ID
+  id_fun : V → ℕ
 
-structure DLOCAL_Network  extends LOCAL_Network V ID where
-  unique_id : @Function.Injective V ID id_fun
+structure DLOCAL_Network  extends LOCAL_Network V where
+  unique_id : Function.Injective id_fun
 
-abbrev DLOCAL.Adj (N : LOCAL_Network V ID) [SimplePN N.toPNNetwork] (v w : V) := N.toPNNetwork.Adj v w
-abbrev DLOCAL.Adj_ID (N : LOCAL_Network V ID) (id₁ id₂ : ID) :=
+structure DLOCAL_PolyBounded (P : Polynomial ℕ) extends LOCAL_Network V where
+  poly_id_bound : ∀ v, id_fun v ≤ P.eval (Fintype.card V)
+
+structure RLOCAL_Network (bound : ℕ) extends PNNetwork V where
+  id_fun : V → PMF ℕ
+
+abbrev RLOCAL_Network_Poly (p : Polynomial ℕ) := RLOCAL_Network V (p.eval <| Fintype.card V)
+
+abbrev DLOCAL.Adj (N : LOCAL_Network V) [SimplePN N.toPNNetwork] (v w : V) := N.toPNNetwork.Adj v w
+
+abbrev DLOCAL.Adj_ID (N : LOCAL_Network V) (id₁ id₂ : ℕ) :=
   ∃ v w : V, N.id_fun v = id₁ ∧ N.id_fun w = id₂ ∧ N.Adj v w
 
 abbrev SimpleGraph.VBall (G : SimpleGraph V) (v : V) (r : ℕ) := {w : V | G.edist v w ≤ r}
