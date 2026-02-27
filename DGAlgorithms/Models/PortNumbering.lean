@@ -261,6 +261,165 @@ def PNNetwork.cycle_cover (n m : ℕ) (h : (n + 1) ∣ (m + 1)) : CoveringMap (c
 end Examples
 
 
+namespace AsyncStart
+
+section WakeUpSeq
+
+def WakeUpSeq (V I : Type*) := ℕ → V → Option I
+
+variable (wus : WakeUpSeq V I)
+
+-- def WakeUpSeq.WakesUpAll : Prop := ∃ K : ℕ, ∀ v : V, ∃ k ≤ K, (wus k v).isSome
+
+def WakeUpSeq.ComesFrom (f : V → I) : Prop :=
+  ∀ k : ℕ, ∀ v : V, (h : (wus k v).isSome) → ((wus k v).get h) = f v
+
+
+def WakeUpSeq.InitializedBy (t : ℕ) : Prop :=
+  ∀ v : V, ∃ k < t, (wus k v).isSome
+
+
+end WakeUpSeq
+
+-- Semantics:
+--
+-- Round 1:
+-- wake_up
+-- step
+-- Round 2:
+-- wake_up
+-- step
+-- ...
+
+structure APNAlgorithm (I O : Type*) where
+  Msg : Type*
+  State : Type*
+  stopStates : Set State
+  init : ℕ → I → State
+  send : (d : ℕ) → State → ℕ → Msg
+  recv : (d : ℕ) → State → (Fin d → Option Msg) → State
+  stopping_condition : ∀ d : ℕ, ∀ y : Fin d → Option Msg, ∀ s : State, s ∈ stopStates → recv d s y = s
+  output : (state : State) → state ∈ stopStates → O -- TODO: State → O
+
+-- structure RunningFlag (V : Type*) where
+--   fn : ℕ → V → Prop
+--   fn_monotone : ∀ k : ℕ, ∀ v : V, fn k v → fn k.succ v
+
+-- def RunningFlag.start := ⊓ k : ℕ, True
+
+/-- A configuration of an algorithm is the collection of states at all nodes. -/
+abbrev APNAlgorithm.Cfg (𝔸 : APNAlgorithm I O) (V : Type u) := V → Option 𝔸.State
+
+
+/-- A configuration is stopping if all nodes are in a stopping state. -/
+def APNAlgorithm.Cfg.IsStopping {A : APNAlgorithm I O} (c : A.Cfg V) : Prop :=
+  ∀ v : V, (c v).isSome ∧ ((h : (c v).isSome) → (c v).get h ∈ A.stopStates)
+
+def APNAlgorithm.Cfg.output {A : APNAlgorithm I O} {c : A.Cfg V} (h : c.IsStopping) : V → O :=
+  fun v ↦ A.output ((c v).get (h v).left) ((h v).right (h v).left)
+
+-- def APNAlgorithm.initialize (A : APNAlgorithm I O) {V : Type*} (N : PNNetwork V) (i : V → I) : A.Cfg V :=
+--   fun v ↦ A.init (N.deg v) (i v)
+def APNAlgorithm.initial (A : APNAlgorithm I O) : A.Cfg V :=
+  fun _ => none
+
+def APNAlgorithm.step (A : APNAlgorithm I O) (N : PNNetwork V) (cfg : A.Cfg V) : A.Cfg V :=
+  fun v ↦
+    let send_helper : V → ℕ → Option A.Msg :=
+      fun u q =>
+        (cfg u) >>= fun cfg_u =>
+          some <| A.send (N.deg u) cfg_u q
+    (cfg v) >>= fun cfg_v =>
+      some <| A.recv (N.deg v) cfg_v (fun p ↦ let u := N.pmap (v, p); send_helper u.node u.port)
+
+lemma APNAlgorithm.step.monotone {A : APNAlgorithm I O} {N : PNNetwork V} (cfg : A.Cfg V) :
+  ∀ v : V, (cfg v).isSome → ((A.step N cfg) v).isSome := by
+    sorry
+
+def APNAlgorithm.wake_up (A : APNAlgorithm I O) (N : PNNetwork V) (i : V → Option I) (cfg : A.Cfg V) : A.Cfg V :=
+  fun v =>
+    if (cfg v).isSome then
+      cfg v
+    else
+      (i v) >>= fun i_v => A.init (N.deg v) i_v
+
+lemma APNAlgorithm.wake_up.monotone {A : APNAlgorithm I O} {N : PNNetwork V} (cfg : A.Cfg V) (i : V → Option I) :
+  ∀ v : V, (cfg v).isSome → (A.wake_up N i cfg) v = cfg v := by
+    sorry
+
+def APNAlgorithm.round (A : APNAlgorithm I O) (N : PNNetwork V) (i : V → Option I) : A.Cfg V → A.Cfg V :=
+  (A.step N) ∘ (A.wake_up N i)
+
+def APNAlgorithm.round.iter (A : APNAlgorithm I O) (N : PNNetwork V) (steps : ℕ) (wake_ups : WakeUpSeq V I) (cfg : A.Cfg V) :
+    A.Cfg V :=
+  match steps with
+  | 0 => cfg
+  | k+1 => A.round N (wake_ups k) $ APNAlgorithm.round.iter A N k wake_ups cfg
+
+/-- A "proof" that `A` evaluates to `e` when starting from `s`. -/
+structure APNAlgorithm.EvolvesToWith (A : APNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (wake_ups : WakeUpSeq V I) where
+  steps : ℕ
+  evals_in_steps : APNAlgorithm.round.iter A N steps wake_ups s = e
+
+/-- A "proof" that `A` reaches `e` from `s` in at most given number of steps. -/
+structure APNAlgorithm.EvolvesToInTimeWith (A : APNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (m : ℕ) (wake_ups : WakeUpSeq V I) extends A.EvolvesToWith N s e wake_ups where
+  steps_le_m : steps ≤ m
+
+
+/-- An asynchronous PN algorithm computes something stably if
+for every finitely-initializing wake up sequence coming from input `i`,
+the algorithm evaluates in `time` steps after full initialization
+to a configuration that is stopping and produces output `o`.
+-/
+def APNAlgorithm.StablyComputes
+    (A : APNAlgorithm I O) (N : PNNetwork V)
+    (i : V → I) (o : V → O) (time : ℕ) : Prop :=
+  ∀ t₁ : ℕ, ∀ wus : WakeUpSeq V I, wus.ComesFrom i → wus.InitializedBy t₁ →
+    ∃ e : A.Cfg V, ∃ _ : A.EvolvesToInTimeWith N A.initial e (t₁ + time) wus,
+      e.IsStopping ∧ ((h : e.IsStopping) → e.output h = o)
+
+
+def PNAlgorithm.toAsync (A : PNAlgorithm I O) : APNAlgorithm I O := sorry
+
+-- TODO: +2 in time is just a guess
+lemma PNAlgorithm.toAsync.stably_computes
+    (A : PNAlgorithm I O) (N : PNNetwork V) (i : V → I) (o : V → O)
+    (time : ℕ) (h : A.EvalsTo N i o) (h_time : h.evolves.steps ≤ time) :
+    (PNAlgorithm.toAsync A).StablyComputes N i o (time+2) := sorry
+
+
+def APNAlgorithm.toSync (A : APNAlgorithm I O) : PNAlgorithm I O := sorry
+
+-- -- #print Nat.rec
+-- def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm I O) (N : PNNetwork V) {s e : A.Cfg V} (heval : A.EvolvesTo N s e)
+--   {motive : A.Cfg V → Sort u} (hbase : motive s) (hstep : ∀ {s' : A.Cfg V}, motive s' → motive (A.step N s')) : motive e :=
+--     let rec recursion (k : ℕ) : motive ((A.step N)^[k] s) := match k with
+--       | 0 => hbase
+--       | k+1 =>
+--         (Function.iterate_succ' _ _).symm ▸ hstep (recursion k)
+--     heval.evals_in_steps ▸ recursion heval.steps
+
+-- /-- A "proof" that `A` reaches `e` from `s` in at most given number of steps. -/
+-- structure PNAlgorithm.EvolvesToInTime (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (m : ℕ) extends A.EvolvesTo N s e where
+--   steps_le_m : steps ≤ m
+
+-- @[refl]
+-- def PNAlgorithm.EvolvesTo.refl : (PNAlgorithm.EvolvesTo A N a a) where
+--   steps := 0
+--   evals_in_steps := rfl
+
+-- @[trans]
+-- def PNAlgorithm.EvolvesTo.trans (h₁ : PNAlgorithm.EvolvesTo A N a b) (h₂ : PNAlgorithm.EvolvesTo A N b c) : (PNAlgorithm.EvolvesTo A N a c) where
+--   steps := h₁.steps + h₂.steps
+--   evals_in_steps := by
+--     rw [Nat.add_comm, Function.iterate_add, Function.comp,
+--         h₁.evals_in_steps, h₂.evals_in_steps]
+
+
+
+
+end AsyncStart
+
 -- inductive Trace (A : PNAlgorithm I O) (N : PNNetwork V) : Type* where
 --   | init (i : V → I) : Trace A N
 --   | step (prev : Trace A N s): Trace A N (
