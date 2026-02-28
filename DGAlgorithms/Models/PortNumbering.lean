@@ -274,16 +274,29 @@ end Examples
 
 def dirCycle (n : ℕ) : PNNetwork (Fin (n+2)) where
   deg := fun _ ↦ 2
-  pmap := fun p ↦ (ite (p.port == 0) (p.node+1) (p.node-1), ite (p.port == 0) 1 0)
+  pmap := fun p ↦ match p.2 with
+  | 0 => (p.node-1,1)
+  | 1 => (p.node+1,0)
+  | _ => p
   pmap_involutive := by
     intro v i hi
     have hi : i = 0 ∨ i = 1 := by grind
     cases' hi with hi hi
     all_goals grind
   is_well_defined := by
-    intro vp
-
-    sorry
+    intro vp hfun
+    let (node,port) := vp
+    simp [Port.port]
+    simp [Port.port, Port.node] at hfun
+    cases port with
+    | zero => linarith
+    | succ k => cases k with
+      | zero => linarith
+      | succ w =>
+        have h0 : (w+1+1≠0) := by linarith
+        have h1 : (w+1+1≠1) := by linarith
+        simp at hfun
+        contradiction
 
 -- def fooboar (A : Type*) : PNAlgorithm A A where
 --   Msg := Unit
