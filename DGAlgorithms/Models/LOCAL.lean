@@ -15,8 +15,10 @@ structure LOCAL_Network extends PNNetwork V where
 structure DLOCAL_Network  extends LOCAL_Network V where
   unique_id : Function.Injective id_fun
 
-structure DLOCAL_PolyBounded (P : Polynomial ℕ) extends LOCAL_Network V where
-  poly_id_bound : ∀ v, id_fun v ≤ P.eval (Fintype.card V)
+structure DLOCAL_Network_bounded (id_bound : ℕ) extends LOCAL_Network V where
+  id_bounded : ∀ v, id_fun v ≤ id_bound
+
+abbrev DLOCAL_Network_Poly (p : Polynomial ℕ) := DLOCAL_Network_bounded V (p.eval <| Fintype.card V)
 
 structure RLOCAL_Network (bound : ℕ) extends PNNetwork V where
   id_fun : V → PMF ℕ
