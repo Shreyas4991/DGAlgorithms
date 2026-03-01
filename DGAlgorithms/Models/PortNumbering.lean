@@ -249,12 +249,30 @@ def PNNetwork.cycle (n : ℕ) : PNNetwork (Fin (n+1)) :=
 def PNNetwork.cycle_cover (n m : ℕ) (h : (n + 1) ∣ (m + 1)) : CoveringMap (cycle m) (cycle n) where
   map := fun v => Fin.ofNat (n+1) v
   map_surj := by
-    simp [Fin.ofNat_eq_cast, Function.Surjective]
+    --simp [Fin.ofNat_eq_cast, Function.Surjective]
+    simp [Function.Surjective]
     intro b
-
+    have hnz : (m+1 ≠ 0) := by tauto
+    have hleq : (n+1 ≤ m+1) := by
+      apply Nat.divisor_le
+      apply Nat.mem_divisors.mpr
+      constructor
+      all_goals assumption
+    use Fin.castLE hleq b
+    simp
+  map_deg := by
+    intro v
+    dsimp [PNNetwork.cycle, PNNetwork.mk']
+  map_adj := by
     sorry
-  map_deg := sorry
-  map_adj := sorry
+    /- intro p h1 h2
+    dsimp [PNNetwork.cycle, PNNetwork.mk']
+    let (node,port):= p
+    have h2p : ((h2 (node,port)).port = port) := by rfl
+    have hfinp : ((Port.to_FinPort (node,port) (fun x ↦2) (h1:port<2)).port = port) := by rfl
+    cases port with
+    | zero => simp [hfinp]
+    | succ => -/
 
 -- lemma PNAlgorithm.no_coloring_algorithm : ¬∃ A : PNAlgorithm () ℕ, ∃ A.Cf
 
