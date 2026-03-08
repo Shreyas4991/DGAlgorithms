@@ -1,4 +1,4 @@
-import DGAlgorithms.Models.PortNumbering
+import DGAlgorithms.Models.MessagePassing.PortNumbering
 import DGAlgorithms.Network.PNNetwork
 import Mathlib
 
