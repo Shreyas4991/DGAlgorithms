@@ -1,5 +1,5 @@
 import Mathlib
-import DGAlgorithms.Models.PortNumbering
+import DGAlgorithms.Models.MessagePassing.PortNumbering
 
 namespace DGAlgorithms
 
@@ -21,7 +21,7 @@ structure DLOCAL_Network_bounded (id_bound : ℕ) extends LOCAL_Network V where
 abbrev DLOCAL_Network_Poly (p : Polynomial ℕ) := DLOCAL_Network_bounded V (p.eval <| Fintype.card V)
 
 structure RLOCAL_Network (bound : ℕ) extends PNNetwork V where
-  id_fun : V → PMF ℕ
+  id_fun : V → PMF (Fin bound)
 
 abbrev RLOCAL_Network_Poly (p : Polynomial ℕ) := RLOCAL_Network V (p.eval <| Fintype.card V)
 

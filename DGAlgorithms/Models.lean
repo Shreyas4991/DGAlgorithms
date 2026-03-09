@@ -1,2 +1,3 @@
-import DGAlgorithms.Models.PortNumbering
+import DGAlgorithms.Models.MessagePassing.PortNumbering
+import DGAlgorithms.Models.MessagePassing.LOCAL
 import DGAlgorithms.Network.PNNetwork
