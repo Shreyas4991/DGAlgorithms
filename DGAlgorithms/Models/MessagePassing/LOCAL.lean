@@ -1,5 +1,5 @@
 import Mathlib
-import DGAlgorithms.Models.PortNumbering
+import DGAlgorithms.Models.MessagePassing.PortNumbering
 
 namespace DGAlgorithms
 
