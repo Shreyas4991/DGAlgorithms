@@ -5,8 +5,8 @@ import DGAlgorithms.Network.CoveringMap
 namespace DGAlgorithms
 
 
-
 -- Algorithm ≃ I → O
+@[ext, grind]
 structure PNAlgorithm (I O : Type*) where
   Msg : Type*
   State : Type*
@@ -19,6 +19,7 @@ structure PNAlgorithm (I O : Type*) where
 
 section Examples
 
+@[simps]
 def PNalgorithm.id {A : Type*} : PNAlgorithm A A where
   Msg := Unit
   State := A
@@ -29,7 +30,7 @@ def PNalgorithm.id {A : Type*} : PNAlgorithm A A where
   stopping_condition := by simp
   output := fun v _ ↦ v
 
-
+@[simps, grind]
 def PNalgorithm.local_map (f : S → S'): PNAlgorithm S S' where
   Msg := Unit
   State := S'
@@ -45,13 +46,16 @@ end Examples
 /-- A configuration of an algorithm is the collection of states at all nodes. -/
 abbrev PNAlgorithm.Cfg (𝔸 : PNAlgorithm I O) (V : Type u) := V → 𝔸.State
 
+@[simp, grind]
 def PNAlgorithm.initialize (A : PNAlgorithm I O) {V : Type*} (N : PNNetwork V) (i : V → I) : A.Cfg V :=
   fun v ↦ A.init (N.deg v) (i v)
 
+@[simp, grind]
 def PNAlgorithm.step (A : PNAlgorithm I O) (N : PNNetwork V) (cfg : A.Cfg V) : A.Cfg V :=
   fun v ↦
     A.recv (N.deg v) (cfg v) (fun p ↦ let u := N.pmap (v, p); A.send (N.deg u.node) (cfg u.node) u.port)
 
+@[simp, grind .]
 lemma PNAlgorithm.step.obey_network_equiv (A : PNAlgorithm I O) (N₁ N₂ : PNNetwork V) : N₁ ≈ N₂ → A.step N₁ = A.step N₂ := by
   intro hequiv
   ext cfg v
@@ -65,6 +69,7 @@ lemma PNAlgorithm.step.obey_network_equiv (A : PNAlgorithm I O) (N₁ N₂ : PNN
   rw [hpmap]
   exact p.isLt
 
+@[simp, grind]
 def PNAlgorithm.eval' (A : PNAlgorithm I O) (N : PNNetwork V) (i : V → I) : ℕ → A.Cfg V
   | 0 => A.initialize N i
   | k+1 => A.step N (A.eval' N i k)
@@ -75,6 +80,7 @@ structure PNAlgorithm.EvolvesTo (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A
   evals_in_steps : (A.step N)^[steps] s = e
 
 -- #print Nat.rec
+@[simp]
 def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm I O) (N : PNNetwork V) {s e : A.Cfg V} (heval : A.EvolvesTo N s e)
   {motive : A.Cfg V → Sort u} (hbase : motive s) (hstep : ∀ {s' : A.Cfg V}, motive s' → motive (A.step N s')) : motive e :=
     let rec recursion (k : ℕ) : motive ((A.step N)^[k] s) := match k with
@@ -87,12 +93,12 @@ def PNAlgorithm.EvolvesTo.induction (A : PNAlgorithm I O) (N : PNNetwork V) {s e
 structure PNAlgorithm.EvolvesToInTime (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) (m : ℕ) extends A.EvolvesTo N s e where
   steps_le_m : steps ≤ m
 
-@[refl]
+@[refl, simp, grind]
 def PNAlgorithm.EvolvesTo.refl : (PNAlgorithm.EvolvesTo A N a a) where
   steps := 0
   evals_in_steps := rfl
 
-@[trans]
+@[trans, simp, grind]
 def PNAlgorithm.EvolvesTo.trans (h₁ : PNAlgorithm.EvolvesTo A N a b) (h₂ : PNAlgorithm.EvolvesTo A N b c) : (PNAlgorithm.EvolvesTo A N a c) where
   steps := h₁.steps + h₂.steps
   evals_in_steps := by
@@ -100,12 +106,13 @@ def PNAlgorithm.EvolvesTo.trans (h₁ : PNAlgorithm.EvolvesTo A N a b) (h₂ : P
         h₁.evals_in_steps, h₂.evals_in_steps]
 
 -- @[refl] Unfortunately we cannot have that due to pattern matching failing
+@[simp, grind]
 def PNAlgorithm.EvolvesToInTime.refl : (PNAlgorithm.EvolvesToInTime A N a a 0) where
   steps := 0
   evals_in_steps := rfl
   steps_le_m := Nat.zero_le 0
 
-@[trans]
+@[trans, simp, grind]
 def PNAlgorithm.EvolvesToInTime.trans (h₁ : PNAlgorithm.EvolvesToInTime A N a b n) (h₂ : PNAlgorithm.EvolvesToInTime A N b c m) : (PNAlgorithm.EvolvesToInTime A N a c (n+m)) where
   steps := h₁.steps + h₂.steps
   evals_in_steps := by
@@ -121,7 +128,6 @@ def PNAlgorithm.Cfg.IsStopping {A : PNAlgorithm I O} (c : A.Cfg V) : Prop :=
 /-- Once an algorithm has stopped, the configuration won't change anymore. -/
 @[simp]
 lemma PNAlgorithm.step_id_if_stopping {A : PNAlgorithm I O} {N : PNNetwork V} {c : A.Cfg V} (h : c.IsStopping) : A.step N c = c := by
-  unfold step
   ext x
   apply A.stopping_condition
   apply h
@@ -141,14 +147,14 @@ lemma PNAlgorithm.Stopping_EvalsTo_eq_self {A : PNAlgorithm I O} {N : PNNetwork 
 def PNAlgorithm.Cfg.output {A : PNAlgorithm I O} {c : A.Cfg V} (h : c.IsStopping) : V → O :=
   fun v ↦ A.output (c v) (h v)
 
-
+@[ext, grind]
 structure PNAlgorithm.EvalsTo (A : PNAlgorithm I O) (N : PNNetwork V) (i : V → I) (o : V → O) where
   end_state : A.Cfg V
   stops : end_state.IsStopping
   output_correct : end_state.output stops = o
   evolves : EvolvesTo A N (A.initialize N i) end_state
 
-
+@[ext]
 structure PNAlgorithm.EvalsToStopping (A : PNAlgorithm I O) (N : PNNetwork V) (s e : A.Cfg V) extends EvolvesTo A N s e where
   stopping : e.IsStopping
 
@@ -396,8 +402,6 @@ def PNAlgorithm.comp (a1 : PNAlgorithm A B) (a2 : PNAlgorithm B C) [∀ s, Decid
     · split_ifs with hstop₁' hsome₂
       · extract_lets state₂ state₂'
         -- congr
-
-
         sorry
       · sorry
       · absurd hstop₁'
