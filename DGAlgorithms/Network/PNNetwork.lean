@@ -140,6 +140,20 @@ lemma PNNetwork.pmap'.involutive (N : PNNetwork V) : Function.Involutive N.pmap'
   congr
   all_goals simp [N.pmap_involutive' (v, p) hp]
 
+
+def PNNetwork.pmap2' (N : PNNetwork V) : N.Port' → N.Port' :=
+  fun ⟨vp, hp⟩ => ⟨(N.pmap vp), (N.is_well_defined_iff vp).mpr hp⟩
+
+lemma PNNetwork.pmap2'.involutive (N : PNNetwork V) : Function.Involutive N.pmap2' := by
+  intro ⟨vp, hp⟩
+  unfold pmap2'
+  dsimp
+  congr
+  all_goals simp [N.pmap_involutive' vp hp]
+
+lemma PNNetwork.pmap2'_eq_pmap {N : PNNetwork V} {p : N.Port'} :
+    N.pmap2' p = ⟨N.pmap (p.node, p.port), (N.is_well_defined_iff (p.node, p.port)).mpr p.property⟩ := by rfl
+
 lemma PNNetwork.mk'_eq (N : PNNetwork V) : PNNetwork.mk' N.pmap' (PNNetwork.pmap'.involutive N) ≈ N := by
   constructor
   · rfl
@@ -454,20 +468,3 @@ infixl:70 " □ " => PNNetwork.boxProd
 --   ext v v'
 
 --   sorry
-
-inductive PNWalk {V : Type u} (N : PNNetwork V) : V → V → Type u
-  | nil (v : V) : PNWalk N v v
-  | cons (v : V) (i : ℕ) (h : i < N.deg v) (tail : PNWalk N ((N.pmap (v, i)).node) u) : PNWalk N v u
-
-def PNWalk.length : PNWalk N u v → ℕ
-  | nil _ => 0
-  | cons _ _ _ tail => tail.length + 1
-
-@[simp]
-lemma PNWalk.length_nil : (PNWalk.nil (N := N) v).length = 0 := by rfl
-
-@[simp]
-lemma PNWalk.length_cons : (PNWalk.cons (N := N) v i h tail).length = tail.length + 1 := by rfl
-
-noncomputable def PNNetwork.edist (N : PNNetwork V) (u v : V) : ℕ∞ :=
-  ⨅ w : PNWalk N u v, w.length

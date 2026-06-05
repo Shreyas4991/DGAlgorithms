@@ -30,11 +30,11 @@ port is a dependent pair `(v : V) × Fin (deg v)`. We extract this to
 `PNNetwork.IsWellDefined`.
  -/
 structure PNNetwork (V : Type u) (P : V → Type v) where
-
   /-- Map from a given port of a node to the other end of the edge. -/
   pmap : Port V P → Port V P
   /-- Ensure that ports are properly connected. -/
-  pmap_involutive : ∀ v : V, ∀ i : P v, pmap (pmap ⟨v, i⟩) = ⟨v, i⟩
+  -- pmap_involutive : ∀ v : V, ∀ i : P v, pmap (pmap ⟨v, i⟩) = ⟨v, i⟩
+  pmap_involutive : Function.Involutive pmap
 
 
 variable {V : Type*} {P : V → Type*}
@@ -58,6 +58,8 @@ lemma PNNetwork.pmap_involutive' (N : PNNetwork V P)
   (vp : Port V P) : N.pmap (N.pmap vp) = vp := by
   apply N.pmap_involutive
 
+
+section SimplePN
 
 /-- A Simple Port-Numbered Network.
 
@@ -208,6 +210,7 @@ network.
   apply Finset.card_bijective f f_bij
   simp_all
 
+end SimplePN
 
 section Unnecessary
 -- Pairing functions for PNNetwork,boxProd
@@ -319,7 +322,7 @@ def PNNetwork.boxProd
     }
 
   pmap_involutive := by
-    intro (vv₁, vv₂) (p₁,p₂)
+    intro ⟨(vv₁, vv₂), (p₁,p₂)⟩
     -- Give names to all intermediate values
     simp_all
     rw [G.pmap_involutive, G'.pmap_involutive]
@@ -338,22 +341,3 @@ infixl:70 " □ " => PNNetwork.boxProd
 --   ext v v'
 
 --   sorry
-
-inductive PNWalk {V : Type u} {P : V → Type v} (N : PNNetwork V P) : V → V → Type (max u v)
-  | nil (v : V) : PNWalk N v v
-  | cons (v : V) (p : P v) (tail : PNWalk N ((N.pmap ⟨v, p⟩).node) u) : PNWalk N v u
-
-def PNWalk.length : PNWalk N u v → ℕ
-  | nil _ => 0
-  | cons _ _ tail => tail.length + 1
-
-omit s in
-@[simp]
-lemma PNWalk.length_nil : (PNWalk.nil (N := N) v).length = 0 := by rfl
-
-omit s in
-@[simp]
-lemma PNWalk.length_cons : (PNWalk.cons (N := N) v i tail).length = tail.length + 1 := by rfl
-
-noncomputable def PNNetwork.edist (N : PNNetwork V α) (u v : V) : ℕ∞ :=
-  ⨅ w : PNWalk N u v, w.length
