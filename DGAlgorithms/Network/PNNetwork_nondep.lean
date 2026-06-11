@@ -1,170 +1,134 @@
 import Mathlib
 
-/-!
-# Port-Numbered Networks
-
-In this file, we define PN Networks and what it means for a network to be
-simple. We then provide the natural coersion from the simple network into a
-[`Mathlib.SimpleGraph`]. Finally, we prove some simplification lemmas.
-
-In this file, we define multiple types for ports: [`Port'`] is simply a pair of
-a vertex and a ℕ. However, it is somewhat clumsy to use as it does not carry a
-proof of the validity of the port, that is, the encoded network actually
-includes the port. For the more ergonomic type, see [`PNNetwork.Port`] which
-carries this proof.
-
-The reason for these two types is that sometimes working with type unification
-can be hard, and therefore [`PNNetwork`] is defined in terms of [`Port'`].
--/
 
 namespace DGAlgorithms
 
-/-- A simple port type: a pair of a vertex and ℕ. -/
-abbrev Port' (V : Type u) : Type u := V × ℕ
-
-abbrev Port'.node {V : Type u} (vp : Port' V) : V := vp.fst
-
-abbrev Port'.index {V : Type u} (vp : Port' V) : ℕ := vp.snd
-
--- /-- Ports can also be modelled as dependent pairs. -/
--- abbrev FinPort (V : Type u) (deg : V → ℕ) := (v : V) × Fin (deg v)
-
--- abbrev FinPort.node {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : V := vp.fst
-
--- abbrev FinPort.port {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : Fin (deg vp.node) := vp.snd
-
--- abbrev FinPort.port' {V : Type u} {deg : V → ℕ} (vp : FinPort V deg) : ℕ := vp.snd
-
--- abbrev Port.to_FinPort (p : Port V) (deg : V → ℕ) (h : p.port < deg p.node) : FinPort V deg :=
---   ⟨p.node, ⟨p.port, h⟩⟩
-
--- def FinPort.to_Port (p : FinPort V deg) : Port V := (p.fst, p.snd)
-
--- @[simp] lemma Port.to_FinPort_to_Port_eq (p : Port V) {deg : V → ℕ} {h : p.port < deg p.node} : (p.to_FinPort deg h).to_Port = p := rfl
-
--- @[simp] lemma FinPort.to_Port_to_FinPort_eq (p : FinPort V deg) : p.to_Port.to_FinPort deg p.snd.prop = p := rfl
-
 section PNNetwork
+
+/-- A simple port type: a pair of a vertex and ℕ. -/
+def Port' (V P : Type*) := V × P
+
+abbrev Port'.node (V P : Type*) (vp : Port' V P) : V := vp.fst
+abbrev Port'.index (V P : Type*) (vp : Port' V P) : P := vp.snd
 
 /-- A pre-PNNetwork.
  -/
-structure PNNetwork (V : Type u) where
-  /-- Degree of a node. -/
-  deg : V → ℕ
-  /-- Map from a given port of a node to the other end of the edge.
+structure PNNetwork (V P : Type*) where
+  PortValid : Port' V P → Prop
+  pmap' : Port' V P → Port' V P
+  pmap'_involutive : ∀ vp, PortValid vp → pmap' (pmap' vp) = vp
+  pmap'_is_valid : ∀ vp, PortValid (pmap' vp) → PortValid vp
 
-  This is the version that uses [`Port'`] without proof of validity.
-  See [`PNNetwork.Port`] for the type with attached proof of validity.
-  -/
-  pmap' : Port' V → Port' V
-  /-- Function [`pmap'`] is involutive for valid ports. -/
-  pmap'_involutive : ∀ v : V, ∀ i < deg v, pmap' (pmap' (v, i)) = (v, i)
-  /-- If pmap' takes us to a valid port, then we must have started from a valid port.
+variable {V P : Type*} (N : PNNetwork V P)
 
-  This is enought to ensure well-definedness of the network.
-  -/
-  is_well_defined : ∀ vp : Port' V, (pmap' vp).index < deg (pmap' vp).node → vp.index < deg vp.node
+@[simp]
+lemma PNNetwork.pmap'_is_valid_iff : ∀ vp, N.PortValid (N.pmap' vp) ↔ N.PortValid vp := by
+  intro vp
+  constructor
+  · exact N.pmap'_is_valid vp
+  · intro h
+    rw [←N.pmap'_involutive vp h] at h
+    exact N.pmap'_is_valid _ h
 
 section Port
 
-variable {V : Type*}
+def PNNetwork.Port := { vp : Port' V P // N.PortValid vp }
 
-/-- Port is valid if its port index is less than the degree of the
-corresponding node.
--/
-abbrev PNNetwork.PortValid (vp : Port' V) (N : PNNetwork V) : Prop :=
-  vp.index < N.deg vp.node
+variable {N : PNNetwork V P} (vp : N.Port)
 
-/-- A port with attached proof of validity. -/
-abbrev PNNetwork.Port (N : PNNetwork V) := { p : Port' V // N.PortValid p }
-
--- Helper-accessors to the methods of [`Port`].
-variable {N : PNNetwork V}
-abbrev PNNetwork.Port.node : N.Port → V := fun vp ↦ vp.val.node
-abbrev PNNetwork.Port.index : N.Port → ℕ := fun vp ↦ vp.val.index
-abbrev PNNetwork.Port.port' : N.Port → Port' V := fun vp ↦ (vp.node, vp.index)
-
-abbrev PNNetwork.Port.port_valid (vp : N.Port) : N.PortValid (vp.node, vp.index) := vp.prop
+abbrev PNNetwork.Port.port' : Port' V P := vp.val
+abbrev PNNetwork.Port.node : V := vp.port'.1
+abbrev PNNetwork.Port.index : P := vp.port'.2
+abbrev PNNetwork.Port.is_valid : N.PortValid vp.port' := vp.prop
 
 @[simp]
-lemma PNNetwork.Port.port'_index_eq_index : ∀ vp : N.Port, vp.port'.index = vp.index := by intro vp; rfl
-
+lemma PNNetwork.Port.port'_node : vp.port'.node = vp.node := by rfl
 @[simp]
-lemma PNNetwork.Port.port'_node_eq_node : ∀ vp : N.Port, vp.port'.node = vp.node := by intro vp; rfl
+lemma PNNetwork.Port.port'_index : vp.port'.index = vp.index := by rfl
 
 end Port
 
-variable {V : Type*} (N : PNNetwork V)
+section Pmap
 
-
-@[simp]
-lemma PNNetwork.pmap'_involutive' {V : Type u} (N : PNNetwork V) (vp : Port' V) (h : N.PortValid vp) : N.pmap' (N.pmap' vp) = vp :=
-  N.pmap'_involutive vp.node vp.index h
-
-@[simp]
-lemma PNNetwork.is_well_defined_iff {V : Type u} (N : PNNetwork V) (vp : Port' V) : N.PortValid (N.pmap' vp) ↔ N.PortValid vp := by
-  constructor
-  · intro h
-    have := N.is_well_defined _ h
-    exact this
-  · intro h
-    rw [←N.pmap'_involutive' vp] at h
-    have := N.is_well_defined _ h
-    exact this
-    exact h
-
-/-- Port-mapping function.
-
-This function takes a valid port to a valid port of the attached node.
--/
 def PNNetwork.pmap : N.Port → N.Port :=
-  fun vp ↦ ⟨N.pmap' vp.val, (N.is_well_defined_iff vp.port').mpr vp.port_valid⟩
-
-lemma PNNetwork.pmap_eq_pmap' (vp : N.Port) :
-  N.pmap vp = ⟨N.pmap' vp.port', (N.is_well_defined_iff vp.port').mpr vp.port_valid⟩ := by rfl
-
+  fun vp ↦ ⟨N.pmap' vp.port', (N.pmap'_is_valid_iff vp.port').mpr vp.is_valid⟩
 
 lemma PNNetwork.pmap_involutive : Function.Involutive N.pmap := by
   intro vp
   unfold pmap
-  congr
-  exact N.pmap'_involutive vp.node vp.index vp.port_valid
+  simp [N.pmap'_involutive vp.port' vp.is_valid]
 
 @[simp]
-lemma PNNetwork.pmap_pmap : ∀ vp, N.pmap (N.pmap vp) = vp := N.pmap_involutive
+lemma PNNetwork.pmap_pmap : ∀ vp : N.Port, N.pmap (N.pmap vp) = vp := N.pmap_involutive
 
-/-- Get the port this port is attached to. -/
-def PNNetwork.Port.rev : N.Port → N.Port := N.pmap
 
-@[simp]
-lemma PNNetwork.Port.rev_rev : ∀ vp : N.Port, vp.rev.rev = vp := N.pmap_involutive
 
-section Equiv
+-- include N
+-- def PNNetwork.degree [Fintype ] : V → ℕ := Fintype.card
 
-/-- Two pre-PNNetworks are equivalent if they map valid ports in the same way. -/
-def PNNetwork.Equiv {V : Type*} (N₁ N₂ : PNNetwork V) : Prop :=
-  N₁.deg = N₂.deg ∧ ∀ vp : Port' V, N₁.PortValid vp → N₁.pmap' vp = N₂.pmap' vp
 
-def PNNetwork.Equiv.equivalence {V : Type*} : Equivalence (PNNetwork.Equiv (V := V)) where
-  refl := by simp [Equiv]
-  symm := by simp_all [Equiv]
-  trans := by simp_all [Equiv]
 
-instance PNNetwork.Equiv.setoid (V : Type*) : Setoid (PNNetwork V) where
-   r:= PNNetwork.Equiv
-   iseqv := PNNetwork.Equiv.equivalence
+-- TODO: Decidability here is somewhat annoying. However, I don't know if we can get rid of that
 
-lemma PNNetwork.Equiv.deg_eq {N₁ N₂ : PNNetwork V} (h : N₁ ≈ N₂) : N₁.deg = N₂.deg := by
-  exact h.left
+def PNNetwork.mk' (PortValid : Port' V P → Prop) [instDec : DecidablePred PortValid] (pmap : { vp : Port' V P // PortValid vp } → { vp : Port' V P // PortValid vp }) (pmap_involutive : Function.Involutive pmap) : PNNetwork V P where
+  PortValid := PortValid
+  pmap' := fun vp ↦
+    if hvp : PortValid vp then
+      (pmap ⟨vp, hvp⟩).val
+    else
+      vp
+  pmap'_involutive := by
+    intro vp hvp
+    split_ifs with h
+    · rw [pmap_involutive]
+    · absurd h
+      exact (pmap ⟨vp, hvp⟩).prop
+  pmap'_is_valid := by
+    intro _ h
+    split_ifs at h
+    · assumption
+    · contradiction
 
-lemma PNNetwork.Equiv.port_valid_eq {N₁ N₂ : PNNetwork V} (h : N₁ ≈ N₂) :
-    ∀ vp, N₁.PortValid vp ↔ N₂.PortValid vp := by
-  intro vp
-  unfold PortValid
-  rw [h.left]
+end Pmap
 
-end Equiv
+def PNNetwork.boxProd''  (N₁ : PNNetwork V₁ P₁) (N₂ : PNNetwork V₂ P₂) : PNNetwork (V₁ × V₂) (P₁ × P₂) where
+  PortValid := fun ((v₁, v₂), (p₁, p₂)) ↦ N₁.PortValid (v₁, p₁) ∧ N₂.PortValid (v₂, p₂)
+  pmap' :=  fun vp ↦
+    let uq₁ := N₁.pmap' (vp.1.1, vp.2.1)
+    let uq₂ := N₂.pmap' (vp.1.2, vp.2.2)
+    ((uq₁.node, uq₂.node), (uq₁.index, uq₂.index))
+  pmap'_involutive := by
+    intro vp
+    split
+    simp_all [pmap'_involutive]
+  pmap'_is_valid := by
+    intro vp
+    split
+    simp_all
+    intro h₁ h₂
+    aesop
 
+def PNNetwork.boxProd' (N₁ : PNNetwork V₁ P₁) (N₂ : PNNetwork V₂ P₂) [DecidablePred N₁.PortValid] [DecidablePred N₂.PortValid] : PNNetwork (V₁ × V₂) (P₁ × P₂) := PNNetwork.mk'
+  (PortValid := fun ((v₁, v₂), (p₁, p₂)) ↦ N₁.PortValid (v₁, p₁) ∧ N₂.PortValid (v₂, p₂))
+  (instDec := by
+    intro vp
+    simp
+    split
+    infer_instance
+  )
+  (pmap := fun vp ↦
+    let uq₁ := N₁.pmap ⟨(vp.val.1.1, vp.val.2.1), vp.prop.left⟩
+    let uq₂ := N₂.pmap ⟨(vp.val.1.2, vp.val.2.2), vp.prop.right⟩
+    ⟨((uq₁.node, uq₂.node), (uq₁.index, uq₂.index)), And.intro uq₁.is_valid uq₂.is_valid⟩
+  )
+  (pmap_involutive := by
+    intro vp
+    simp_all
+    eta_struct
+    simp
+  )
+
+include N in
 /-- Adjacency relation for a network.
 
 See [`Mathlib.SimpleGraph.Adj`] for comparison.
@@ -185,12 +149,6 @@ lemma PNNetwork.Adj_of_pmap : ∀ vp : N.Port, N.Adj vp.node (N.pmap vp).node :=
   intro vp
   use vp
 
-@[simp]
-lemma PNNetwork.Adj_of_pmap' : ∀ v : V, ∀ i : ℕ, N.PortValid (v, i) → N.Adj v (N.pmap' (v, i)).node := by
-  intro v i h
-  use ⟨(v, i), h⟩
-  simp [pmap_eq_pmap']
-
 section SimplePN
 
 /-- A Simple Port-Numbered Network.
@@ -198,18 +156,11 @@ section SimplePN
 A PN network is simple if it is both loopless and simple, i.e. there are no
 duplicate edges.
 -/
-class SimplePN {V : Type u} (N : PNNetwork V) : Prop where
+class SimplePN {V : Type u} (N : PNNetwork V P) : Prop where
   /-- There are no edges from a node to itself. -/
   loopless : ∀ vp : N.Port, (N.pmap vp).node ≠ vp.node
   /-- There is at most one edge between any pair of nodes. -/
   simple : ∀ vp₁ vp₂ : N.Port, vp₁.node = vp₂.node → (N.pmap vp₁).node = (N.pmap vp₂).node → vp₁ = vp₂
-
-def SimplePN.simple' [s : SimplePN N] :
-    ∀ v : V, ∀ i j : ℕ, i < N.deg v → j < N.deg v → (N.pmap' (v, i)).node = (N.pmap' (v, j)).node → i = j := by
-  intro v i j hi hj h
-  have := s.simple ⟨(v, i), hi⟩ ⟨(v, j), hj⟩ rfl h
-  rw [←Subtype.val_inj] at this
-  simp_all
 
 
 variable [s : SimplePN N]
