@@ -42,8 +42,11 @@ end Examples
 abbrev PNAlgorithm.CfgOn (𝔸 : PNAlgorithm P I O) (N : PNNetwork V P) := (v : V) → 𝔸.State (N.neighborIndexSet v)
 abbrev PNAlgorithm.CfgOn' (𝔸 : PNAlgorithm P I O) (N : PNNetwork V P) := (v : V) → ((N.neighborIndexSet v) → 𝔸.Msg) × 𝔸.State (N.neighborIndexSet v)
 
-@[simp, grind]
-def PNAlgorithm.CfgOn.output {𝔸 : PNAlgorithm P I O} {N : PNNetwork V P} (c : 𝔸.CfgOn N) : (v : V) → O := fun v ↦ 𝔸.output (c v)
+-- @[simp, grind]
+abbrev PNAlgorithm.CfgOn.output {𝔸 : PNAlgorithm P I O} {N : PNNetwork V P} (c : 𝔸.CfgOn N) : (v : V) → O := fun v ↦ 𝔸.output (c v)
+
+-- @[simp, grind]
+abbrev PNAlgorithm.CfgOn'.to_CfgOn {𝔸 : PNAlgorithm P I O} {N : PNNetwork V P} (c : 𝔸.CfgOn' N) : 𝔸.CfgOn N := fun v ↦ (c v).snd
 
 -- @[simp, grind]
 -- lemma PNAlgorithm.CfgOn.pmap_pmap {𝔸 : PNAlgorithm P I O} {N : PNNetwork V P} : ∀ cfg : 𝔸.CfgOn N, ∀ vp : N.Port, cfg (N.pmap (N.pmap vp)).node = cfg vp.node := by
@@ -57,6 +60,11 @@ def PNAlgorithm.initialize (A : PNAlgorithm P I O) {V : Type*} (N : PNNetwork V 
 def PNAlgorithm.CfgOn.stepSend (A : PNAlgorithm P I O) {N : PNNetwork V P} (cfg : A.CfgOn N) : A.CfgOn' N :=
   fun v ↦
     (A.send (cfg v), cfg v)
+
+@[simp]
+lemma PNAlgorithm.CfgOn'.stepSend_toCfg {A : PNAlgorithm P I O} {N : PNNetwork V P} : ∀ cfg : A.CfgOn N, cfg.stepSend.to_CfgOn = cfg := by
+  intro cfg'
+  rfl
 
 @[simp, grind]
 def PNAlgorithm.CfgOn'.stepComm (A : PNAlgorithm P I O) {N : PNNetwork V P} (cfg' : A.CfgOn' N) : A.CfgOn' N :=
@@ -79,6 +87,11 @@ lemma PNAlgorithm.CfgOn'.stepComm_stepComm {A : PNAlgorithm P I O} {N : PNNetwor
       simp
   · rfl
 
+@[simp]
+lemma PNAlgorithm.CfgOn'.stepComm_toCfg {A : PNAlgorithm P I O} {N : PNNetwork V P} : ∀ cfg' : A.CfgOn' N, cfg'.stepComm.to_CfgOn = cfg'.to_CfgOn := by
+  intro cfg'
+  rfl
+
 @[simp, grind]
 def PNAlgorithm.CfgOn'.stepRecv (A : PNAlgorithm P I O) {N : PNNetwork V P} (cfg : A.CfgOn' N) : A.CfgOn N :=
   fun v ↦
@@ -87,6 +100,19 @@ def PNAlgorithm.CfgOn'.stepRecv (A : PNAlgorithm P I O) {N : PNNetwork V P} (cfg
 @[simp, grind]
 def PNAlgorithm.step (A : PNAlgorithm P I O) (N : PNNetwork V P) (cfg : A.CfgOn N) : A.CfgOn N :=
   cfg.stepSend.stepComm.stepRecv
+
+@[simp, grind]
+def PNAlgorithm.execFor (A : PNAlgorithm P I O) (N : PNNetwork V P) (i : V → I) (n : ℕ) : A.CfgOn N :=
+  (A.step N)^[n] (A.initialize N i)
+
+@[simp]
+lemma PNAlgorithm.execFor_zero  (A : PNAlgorithm P I O) (N : PNNetwork V P) (i : V → I) : A.execFor N i 0 = A.initialize N i := by rfl
+
+@[simp]
+lemma PNAlgorithm.execFor_succ  (A : PNAlgorithm P I O) (N : PNNetwork V P) (i : V → I) (n : ℕ) : A.execFor N i (n+1) = A.step N (A.execFor N i n) := by
+  unfold execFor
+  rw [Function.iterate_succ']
+  rfl
 
 /-- A "proof" that `A` evolves to `e` when starting from `s`. -/
 structure PNAlgorithm.EvolvesTo (A : PNAlgorithm P I O) (N : PNNetwork V P) (s e : A.CfgOn N) where
