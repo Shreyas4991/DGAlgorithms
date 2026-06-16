@@ -23,7 +23,7 @@ def PNalgorithm.id : PNAlgorithm P S S where
   Msg := Unit
   State := fun _ ↦ S
   init := fun _ v ↦ v
-  send := fun v _ ↦ ()
+  send := fun _ _ ↦ ()
   recv := fun v _ ↦ v
   output := fun v ↦ v
 
@@ -32,7 +32,7 @@ def PNalgorithm.local_map (f : S → S'): PNAlgorithm P S S' where
   Msg := Unit
   State := fun _ ↦ S'
   init := fun _ v ↦ f v
-  send := fun v _ ↦ ()
+  send := fun _ _ ↦ ()
   recv := fun v _ ↦ v
   output := fun v ↦ v
 
@@ -100,6 +100,10 @@ def PNAlgorithm.CfgOn'.stepRecv (A : PNAlgorithm P I O) {N : PNNetwork V P} (cfg
 @[simp, grind]
 def PNAlgorithm.step (A : PNAlgorithm P I O) (N : PNNetwork V P) (cfg : A.CfgOn N) : A.CfgOn N :=
   cfg.stepSend.stepComm.stepRecv
+
+@[simp, grind]
+lemma PNAlgorithm.step_eq_recv_of (A : PNAlgorithm P I O) (N : PNNetwork V P) (cfg : A.CfgOn N) :
+    ∀ v : V, A.step N cfg v = A.recv (cfg v) ((cfg.stepSend.stepComm) v).fst := by simp
 
 @[simp, grind]
 def PNAlgorithm.execFor (A : PNAlgorithm P I O) (N : PNNetwork V P) (i : V → I) (n : ℕ) : A.CfgOn N :=
