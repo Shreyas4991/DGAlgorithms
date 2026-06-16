@@ -86,7 +86,7 @@ lemma PNWalk.length_cons {tail : PNWalk N u v} : (e :: tail).length = tail.lengt
 @[simp]
 lemma PNEdge.toWalk_length {e : PNEdge N u v} : e.toWalk.length = 1 := by rfl
 
-
+-- TODO: This should be called `support`
 def PNWalk.vertices {N : PNNetwork V} : PNWalk N u v → List V
 | nil v => [v]
 | cons e tail => u :: tail.vertices
@@ -189,7 +189,7 @@ def PNWalk.ports : PNWalk N u v → List N.Port'
 | cons e tail => e.toPort :: tail.ports
 
 @[simp]
-lemma PNWak.ports_length (w : PNWalk N u v) : w.ports.length = w.length := by
+lemma PNWalk.ports_length (w : PNWalk N u v) : w.ports.length = w.length := by
   induction w
   case nil => rfl
   case cons a as ih =>
@@ -263,8 +263,15 @@ lemma PNWalk.ports_adjacent (w : PNWalk N u v) : w.ports.IsChain PNNetwork.Port'
 --       rw [a]
 --     sorry
 
+def PNCycle := { w : PNWalk' N // w.first = w.last }
+def PNCycle.Nontrivial := ...
+-- def PNCycle := { w : PNWalk' N // w.first = w.last }
+
 noncomputable def PNNetwork.edist (N : PNNetwork V) (u v : V) : ℕ∞ :=
   ⨅ w : PNWalk N u v, w.length
+
+noncomputable def PNNetwork.edist' (N : PNNetwork V) (u v : V) : ℕ∞ :=
+  ⨅ w : {w : PNWalk N // w.first = u ∧ w.last = v}, w.length
 
 def PNNetwork.Connected (N : PNNetwork V) (u v : V) : Prop := ∃ _ : PNWalk N u v, True
 
