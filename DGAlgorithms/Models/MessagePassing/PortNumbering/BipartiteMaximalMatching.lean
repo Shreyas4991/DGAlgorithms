@@ -83,11 +83,14 @@ lemma bipartiteMatching.Stopping_idempotent {p : Set P} :
         rw [← hn]
         rfl
 
+instance : PNAlgorithm.WithStopping (bipartiteMatching P) where
+  Stopping := MMState.Stopping
+  lawfull_stopping := bipartiteMatching.Stopping_idempotent
 
-@[simp]
-lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
-    ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
-      s.Stopping → ((bipartiteMatching P).recv s msg).Stopping := by simp_all
+-- @[simp]
+-- lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
+--     ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+--       s.Stopping → ((bipartiteMatching P).recv s msg).Stopping := by simp_all
 
 @[simp]
 lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
@@ -115,13 +118,12 @@ lemma bipartiteMatching.turn_eq_odd_k (N : PNNetwork V P) (i : V → Bool) :
     apply left_or_not_left_and_right at hi
     cases' hi with hi hi
     · left
-      rw [PNAlgorithm.execFor_succ, PNAlgorithm.step]
-      apply bipartiteMatching.Stopping_to_Stopping
-      simp only [PNAlgorithm.CfgOn.stepSend, PNAlgorithm.CfgOn'.stepComm, hi]
+      rw [PNAlgorithm.execFor_succ]
+      apply (bipartiteMatching P).step_Stopping_to_Stopping
+      assumption
     · right
       obtain ⟨hs, hi⟩ := hi
-      rw [Nat.odd_add_one, ←hi]
-      rw [PNAlgorithm.execFor_succ]
+      rw [Nat.odd_add_one, ←hi, PNAlgorithm.execFor_succ]
       generalize (bipartiteMatching P).execFor N i n = x at *
       simp [bipartiteMatching.NotStopping_turns_alternate _ _ hs]
 

@@ -38,6 +38,8 @@ def PNalgorithm.local_map (f : S → S'): PNAlgorithm P S S' where
 
 end Examples
 
+variables {P I O V : Type*}
+
 /-- A configuration of an algorithm is the collection of states at all nodes. -/
 abbrev PNAlgorithm.CfgOn (𝔸 : PNAlgorithm P I O) (N : PNNetwork V P) := (v : V) → 𝔸.State (N.neighborIndexSet v)
 abbrev PNAlgorithm.CfgOn' (𝔸 : PNAlgorithm P I O) (N : PNNetwork V P) := (v : V) → ((N.neighborIndexSet v) → 𝔸.Msg) × 𝔸.State (N.neighborIndexSet v)
@@ -117,6 +119,33 @@ lemma PNAlgorithm.execFor_succ  (A : PNAlgorithm P I O) (N : PNNetwork V P) (i :
   unfold execFor
   rw [Function.iterate_succ']
   rfl
+
+section Stopping
+
+class PNAlgorithm.WithStopping (A : PNAlgorithm P I O) where
+  Stopping : {p : Set P} → A.State p → Prop
+  lawfull_stopping : ∀ {p : Set P}, ∀ s : A.State p, ∀ msg : p → A.Msg, Stopping s → A.recv s msg = s
+
+abbrev PNAlgorithm.Stopping (A : PNAlgorithm P I O) [inst : A.WithStopping] : {p : Set P} → A.State p → Prop := inst.Stopping
+
+@[simp]
+abbrev PNAlgorithm.Stopping_recv (A : PNAlgorithm P I O) [inst : A.WithStopping] : ∀ {p : Set P}, ∀ s : A.State p, ∀ msg : p → A.Msg, A.Stopping s → A.recv s msg = s := inst.lawfull_stopping
+
+variable {A : PNAlgorithm P I O} [A.WithStopping]
+
+lemma PNAlgorithm.recv_Stopping_to_Stopping {p : Set P} :
+    ∀ s : A.State p, ∀ msg : p → A.Msg, A.Stopping s → A.Stopping (A.recv s msg) := by simp_all
+
+@[simp]
+lemma PNAlgorithm.Stopping_step :
+    ∀ cfg : A.CfgOn N, ∀ v : V, A.Stopping (cfg v) → A.step N cfg v = cfg v := by simp_all
+
+lemma PNAlgorithm.step_Stopping_to_Stopping :
+    ∀ cfg : A.CfgOn N, ∀ v : V, A.Stopping (cfg v) → A.Stopping (A.step N cfg v) := by simp_all
+
+abbrev PNAlgorithm.CfgOn.Stopping {N : PNNetwork V P} (cfg : A.CfgOn N) := ∀ v : V, A.Stopping (cfg v)
+
+end Stopping
 
 /-- A "proof" that `A` evolves to `e` when starting from `s`. -/
 structure PNAlgorithm.EvolvesTo (A : PNAlgorithm P I O) (N : PNNetwork V P) (s e : A.CfgOn N) where
