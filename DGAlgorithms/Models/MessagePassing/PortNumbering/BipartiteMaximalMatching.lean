@@ -17,7 +17,6 @@ structure MMState (P : Type*) where
 
 
 open Classical in
-@[simp]
 noncomputable
 def bipartiteMatching (P : Type*) : PNAlgorithm P Bool (Option P) where
   State := fun _ ↦ MMState P
@@ -77,7 +76,7 @@ lemma bipartiteMatching.Stopping_idempotent {p : Set P} :
       s.Stopping → (bipartiteMatching P).recv s msg = s := by
         intro s msg
         unfold MMState.Stopping
-        dsimp
+        dsimp [bipartiteMatching]
         intro hn
         rw [hn]
         simp
@@ -93,11 +92,10 @@ lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
 @[simp]
 lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
     ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
-      ¬((bipartiteMatching P).recv s msg).Stopping → ((bipartiteMatching P).recv s msg).turn = !s.turn := by
-        intro s msg notstop'
-        have notstop := mt (bipartiteMatching.Stopping_to_Stopping s msg) notstop'
+      ¬s.Stopping → ((bipartiteMatching P).recv s msg).turn = !s.turn := by
+        intro s msg notstop
         dsimp [MMState.Stopping] at notstop
-        simp [notstop]
+        simp [notstop, bipartiteMatching]
         split
         all_goals (try split)
         all_goals (try split)
@@ -105,6 +103,27 @@ lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
 
 
 variable {V P : Type*} (N : PNNetwork V P)
+
+lemma left_or_not_left_and_right (a b : Prop) : a ∨ b → a ∨ (¬a ∧ b) := by tauto
+
+lemma bipartiteMatching.turn_eq_odd_k (N : PNNetwork V P) (i : V → Bool) :
+    ∀ v : V, ((bipartiteMatching P).execFor N i k v).Stopping ∨ ((bipartiteMatching P).execFor N i k v).turn = Odd k := by
+  intro v
+  induction k
+  case zero => simp [bipartiteMatching]
+  case succ n hi =>
+    apply left_or_not_left_and_right at hi
+    cases' hi with hi hi
+    · left
+      rw [PNAlgorithm.execFor_succ, PNAlgorithm.step]
+      apply bipartiteMatching.Stopping_to_Stopping
+      simp only [PNAlgorithm.CfgOn.stepSend, PNAlgorithm.CfgOn'.stepComm, hi]
+    · right
+      obtain ⟨hs, hi⟩ := hi
+      rw [Nat.odd_add_one, ←hi]
+      rw [PNAlgorithm.execFor_succ]
+      generalize (bipartiteMatching P).execFor N i n = x at *
+      simp [bipartiteMatching.NotStopping_turns_alternate _ _ hs]
 
 lemma bipartiteMatching.active_neigh_ssubset (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
     ∀ v : V, ¬(cfg v).role → (cfg v).neighbors.Nonempty → (((bipartiteMatching P).step N)^[2] cfg v).neighbors ⊂ (cfg v).neighbors := by
