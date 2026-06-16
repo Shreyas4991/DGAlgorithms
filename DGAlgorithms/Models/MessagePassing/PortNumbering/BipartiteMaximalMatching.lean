@@ -15,7 +15,9 @@ structure MMState (P : Type*) where
   neighbors : Set P
   matched : Option P
 
+
 open Classical in
+@[simp]
 noncomputable
 def bipartiteMatching (P : Type*) : PNAlgorithm P Bool (Option P) where
   State := fun _ ↦ MMState P
@@ -72,7 +74,16 @@ def MMState.Stopping : MMState P → Prop := fun s ↦ s.neighbors = ∅
 @[simp]
 lemma bipartiteMatching.Stopping_idempotent {p : Set P} :
     ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
-      s.Stopping → (bipartiteMatching P).recv s msg = s := sorry
+      s.Stopping → (bipartiteMatching P).recv s msg = s := by
+        intro s msg
+        unfold MMState.Stopping
+        dsimp
+        intro hn
+        rw [hn]
+        simp
+        rw [← hn]
+        rfl
+
 
 @[simp]
 lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
@@ -82,7 +93,16 @@ lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
 @[simp]
 lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
     ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
-      ¬((bipartiteMatching P).recv s msg).Stopping → ((bipartiteMatching P).recv s msg).turn = ¬s.turn := sorry
+      ¬((bipartiteMatching P).recv s msg).Stopping → ((bipartiteMatching P).recv s msg).turn = !s.turn := by
+        intro s msg notstop'
+        have notstop := mt (bipartiteMatching.Stopping_to_Stopping s msg) notstop'
+        dsimp [MMState.Stopping] at notstop
+        simp [notstop]
+        split
+        all_goals (try split)
+        all_goals (try split)
+        all_goals (try rfl)
+
 
 variable {V P : Type*} (N : PNNetwork V P)
 
