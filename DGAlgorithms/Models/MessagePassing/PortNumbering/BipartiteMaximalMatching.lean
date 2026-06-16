@@ -87,10 +87,10 @@ instance : PNAlgorithm.WithStopping (bipartiteMatching P) where
   Stopping := MMState.Stopping
   lawfull_stopping := bipartiteMatching.Stopping_idempotent
 
--- @[simp]
--- lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
---     ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
---       s.Stopping → ((bipartiteMatching P).recv s msg).Stopping := by simp_all
+@[simp]
+lemma bipartiteMatching.Stopping_to_Stopping {p : Set P} :
+    ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+      s.Stopping → ((bipartiteMatching P).recv s msg).Stopping := by simp_all
 
 @[simp]
 lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
@@ -104,6 +104,47 @@ lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
         all_goals (try split)
         all_goals (try rfl)
 
+@[simp]
+lemma bipartiteMatching_neigh_subset  {p : Set P} :
+  ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+    ((bipartiteMatching P).recv s msg).neighbors ⊆ s.neighbors := by
+      intro s msg
+      simp [bipartiteMatching]
+      split
+      all_goals (try split)
+      all_goals (try split)
+      all_goals (try split)
+      all_goals (try simp)
+
+lemma bipartiteMatching_matched_stopped {p : Set P} :
+  ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+  ¬(((bipartiteMatching P).recv s msg).matched = none) → ((bipartiteMatching P).recv s msg).neighbors = ∅ := by
+  intro s msg hmatch
+  simp only [bipartiteMatching] at *
+  split
+  · rfl
+  · split
+    all_goals (try split)
+    all_goals (try split)
+    all_goals (try rfl) -- technically unneeded, but makes the amount of goals smaller
+    all_goals (split at hmatch)
+    all_goals (try split at hmatch)
+    all_goals (try split at hmatch)
+    all_goals (try split at hmatch)
+    all_goals (try contradiction)
+    all_goals (aesop) -- only way I found to get around the ''split does not give me names'' issue
+
+
+lemma bipartiteMatching_proposing_decreases (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
+   ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+  ¬s.role → s.neighbors.Nonempty → s.turn → ((bipartiteMatching P).recv s msg).neighbors ⊂ s.neighbors := by
+    intro s msg hrole hnonempty hturn
+    apply Set.ssubset_iff_exists.mpr
+    constructor
+    · exact bipartiteMatching_neigh_subset s msg
+    · apply (Iff.not_right Set.not_nonempty_iff_eq_empty).mp at hnonempty
+      simp only [bipartiteMatching,hnonempty,dite_false,hrole,hturn]
+      sorry
 
 variable {V P : Type*} (N : PNNetwork V P)
 
@@ -127,9 +168,17 @@ lemma bipartiteMatching.turn_eq_odd_k (N : PNNetwork V P) (i : V → Bool) :
       generalize (bipartiteMatching P).execFor N i n = x at *
       simp [bipartiteMatching.NotStopping_turns_alternate _ _ hs]
 
+lemma bipartiteMatching_step_neigh_subset (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
+   ∀ v : V, (((bipartiteMatching P).step N) cfg v).neighbors ⊆ (cfg v).neighbors := by
+   intro v
+   rw [((bipartiteMatching P).step_eq_recv_of N cfg) v]
+   simp
+
+
 lemma bipartiteMatching.active_neigh_ssubset (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
     ∀ v : V, ¬(cfg v).role → (cfg v).neighbors.Nonempty → (((bipartiteMatching P).step N)^[2] cfg v).neighbors ⊂ (cfg v).neighbors := by
-  sorry
+    intro v hrole hnonempty
+    sorry
   -- intro v hr h
   -- apply Set.ssubset_iff_exists.mpr
   -- constructor
