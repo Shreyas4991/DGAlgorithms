@@ -41,26 +41,26 @@ def bipartiteMatching (P : Type*) : PNAlgorithm P Bool (Option P) where
       ⟨turn, role, ∅, matched⟩
     else
       match turn, role, matched with
-      -- | _, _, some q =>
-      --   -- We have been matched already, let's keep it at that
-      --   ⟨turn, role, ∅, some q⟩
+      | _, _, some _ =>
+         -- We have been matched already, let's keep it at that
+         ⟨!turn, role, ∅, matched⟩
       | true, false, none =>
         -- Last round, we sent a proposal: remove the node from the set of neighbors
         if h : ∃ p, msg p = .propose_accept then
-          ⟨¬turn, role, ∅, some (h.choose)⟩
+          ⟨!turn, role, ∅, some (h.choose)⟩
         else
           have hn : neigh.Nonempty := Set.nonempty_iff_ne_empty.mpr hn
-          ⟨¬turn, role, neigh \ {hn.choose}, none⟩
+          ⟨!turn, role, neigh \ {hn.choose}, none⟩
       | false, true, none =>
         -- It is our turn to accept or reject a proposal
         if h : ∃ p, msg p = .propose_accept then
-          ⟨¬turn, role, ∅, some (h.choose)⟩
+          ⟨!turn, role, ∅, some (h.choose)⟩
         else if ∀ p, msg p = .stop then
-          ⟨¬turn, role, ∅, none⟩
+          ⟨!turn, role, ∅, none⟩
         else
-          ⟨¬turn, role, neigh, none⟩
+          ⟨!turn, role, neigh, none⟩
       | _, _, _ =>
-        ⟨¬turn, role, neigh, none⟩
+        ⟨!turn, role, neigh, none⟩
   output := fun ⟨_turn, _role, _neigh, matched⟩ ↦
     matched
 
@@ -100,9 +100,8 @@ lemma bipartiteMatching.NotStopping_turns_alternate {p : Set P} :
         dsimp [MMState.Stopping] at notstop
         simp [notstop, bipartiteMatching]
         split
-        all_goals (try split)
-        all_goals (try split)
-        all_goals (try rfl)
+        repeat (any_goals split)
+        all_goals (rfl)
 
 @[simp]
 lemma bipartiteMatching_neigh_subset  {p : Set P} :
@@ -111,10 +110,8 @@ lemma bipartiteMatching_neigh_subset  {p : Set P} :
       intro s msg
       simp [bipartiteMatching]
       split
-      all_goals (try split)
-      all_goals (try split)
-      all_goals (try split)
-      all_goals (try simp)
+      repeat (any_goals split)
+      all_goals (simp)
 
 lemma bipartiteMatching_matched_stopped {p : Set P} :
   ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
@@ -124,27 +121,79 @@ lemma bipartiteMatching_matched_stopped {p : Set P} :
   split
   · rfl
   · split
-    all_goals (try split)
-    all_goals (try split)
-    all_goals (try rfl) -- technically unneeded, but makes the amount of goals smaller
+    repeat (any_goals split)
+    any_goals (rfl) -- technically unneeded, but makes the amount of goals smaller
     all_goals (split at hmatch)
-    all_goals (try split at hmatch)
-    all_goals (try split at hmatch)
-    all_goals (try split at hmatch)
-    all_goals (try contradiction)
-    all_goals (aesop) -- only way I found to get around the ''split does not give me names'' issue
+    repeat (any_goals split at hmatch)
+    any_goals (contradiction)
+    all_goals (simp_all) -- only way I found to get around the ''split does not give me names'' issue
 
+lemma bipartiteMatching_matched_remains {p : Set P} :
+  ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+  ¬(s.matched=none) → s.matched = ((bipartiteMatching P).recv s msg).matched := by
+    intro s msg notmatch
+    simp only [bipartiteMatching]
+    split; rfl; split
+    any_goals (split; contradiction)
+    · rfl
+    · contradiction
+    · contradiction
+    · apply Option.isSome_iff_ne_none.mpr at notmatch
+      aesop
 
-lemma bipartiteMatching_proposing_decreases (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
+lemma bipartiteMatching_not_unmatching {p : Set P} :
+  ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+  ¬(s.matched=none) → ¬(((bipartiteMatching P).recv s msg).matched=none) := by
+    intro s msg nonmatch
+    rw [← bipartiteMatching_matched_remains s msg nonmatch]
+    assumption
+
+lemma bipartiteMatching_role_remains {p : Set P} :
+  ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
+  s.role = ((bipartiteMatching P).recv s msg).role := by
+    intro s msg
+    simp only [bipartiteMatching]
+    split;
+    repeat (any_goals (split))
+    all_goals rfl
+
+-- this is absolutely awful!
+lemma bipartiteMatching_proposing_decreases {p : Set P} :
    ∀ s : (bipartiteMatching P).State p, ∀ msg : p → (bipartiteMatching P).Msg,
   ¬s.role → s.neighbors.Nonempty → s.turn → ((bipartiteMatching P).recv s msg).neighbors ⊂ s.neighbors := by
     intro s msg hrole hnonempty hturn
     apply Set.ssubset_iff_exists.mpr
     constructor
     · exact bipartiteMatching_neigh_subset s msg
-    · apply (Iff.not_right Set.not_nonempty_iff_eq_empty).mp at hnonempty
-      simp only [bipartiteMatching,hnonempty,dite_false,hrole,hturn]
-      sorry
+    · cases ((bipartiteMatching P).recv s msg).neighbors.eq_empty_or_nonempty with
+      | inl h =>
+        obtain ⟨x,hx⟩ := Set.nonempty_def.mp hnonempty
+        use x
+        simp [hx,h]
+      | inr h =>
+        apply Set.nonempty_iff_ne_empty.mp at hnonempty
+        apply Set.nonempty_iff_ne_empty.mp at h
+        simp only [bipartiteMatching,hnonempty,dite_false] at h
+        simp only [bipartiteMatching,hnonempty,dite_false]
+        repeat split
+        repeat split at h
+        any_goals (contradiction)
+        · simp_all
+        · have hproof := bipartiteMatching._proof_1 P s.neighbors (Eq.mpr_not (eq_false hnonempty) not_false)
+          use (Exists.choose hproof)
+          have hx := Exists.choose_spec hproof
+          simp_all
+        · split at h; contradiction
+          all_goals (split)
+          any_goals (contradiction);
+          · simp_all
+          have hproof := bipartiteMatching._proof_1 P s.neighbors (Eq.mpr_not (eq_false hnonempty) not_false)
+          use (Exists.choose hproof)
+          have hx := Exists.choose_spec hproof
+          all_goals (simp_all)
+        · have unmatch : ∀ (val : P), s.matched = some val → False := by assumption
+          rw [← Option.eq_none_iff_forall_ne_some] at unmatch
+          simp_all
 
 variable {V P : Type*} (N : PNNetwork V P)
 
@@ -174,40 +223,32 @@ lemma bipartiteMatching_step_neigh_subset (cfg : PNAlgorithm.CfgOn (bipartiteMat
    rw [((bipartiteMatching P).step_eq_recv_of N cfg) v]
    simp
 
-
 lemma bipartiteMatching.active_neigh_ssubset (cfg : PNAlgorithm.CfgOn (bipartiteMatching P) N) :
     ∀ v : V, ¬(cfg v).role → (cfg v).neighbors.Nonempty → (((bipartiteMatching P).step N)^[2] cfg v).neighbors ⊂ (cfg v).neighbors := by
     intro v hrole hnonempty
-    sorry
-  -- intro v hr h
-  -- apply Set.ssubset_iff_exists.mpr
-  -- constructor
-  -- ·
-  --   intro x a
-  --   -- unfold bipartiteMatching.recv
-  --   simp_all []
-
-  --   -- aesop
-  --   sorry
-  -- · simp
-  --   by_cases h : (cfg v).neighbors.Nonempty
-  --   ·
-  --     obtain ⟨a, h⟩ := h
-  --     use a
-  --     constructor; assumption
-  --     -- simp [(bipartiteMatching P).recv]
-  --     -- intro ha
-  --     -- eta_reduce at ha
-  --     -- beta_reduce at ha
-  --     -- beta_reduce at ha
-
-
-  --     -- dsimp [bipartiteMatching]
-
-
-
-  --   -- use (cfg v).
-  --   sorry
+    -- somehow, using repeat below creates new goals.
+    unfold Nat.iterate; unfold Nat.iterate; unfold Nat.iterate
+    rw [(bipartiteMatching P).step_eq_recv_of,(bipartiteMatching P).step_eq_recv_of]
+    let fmsg := (PNAlgorithm.CfgOn'.stepComm (bipartiteMatching P) (PNAlgorithm.CfgOn.stepSend (bipartiteMatching P) cfg) v).1
+    let nstate := (bipartiteMatching P).recv (cfg v) fmsg
+    let smsg := (PNAlgorithm.CfgOn'.stepComm (bipartiteMatching P) (PNAlgorithm.CfgOn.stepSend (bipartiteMatching P) ((bipartiteMatching P).step N cfg)) v).1
+    by_cases hempty: nstate.neighbors.Nonempty
+    · by_cases hturn: (cfg v).turn
+      · have hdec := bipartiteMatching_proposing_decreases (cfg v) fmsg hrole hnonempty hturn
+        have hsub := bipartiteMatching_neigh_subset nstate smsg
+        exact Set.ssubset_of_subset_of_ssubset hsub hdec
+      · have hsub := bipartiteMatching_neigh_subset (cfg v) fmsg
+        have not_stop : ¬(cfg v).Stopping := by unfold MMState.Stopping; exact Set.nonempty_iff_ne_empty.mp hnonempty
+        have next_turn := bipartiteMatching.NotStopping_turns_alternate (cfg v) fmsg not_stop
+        simp only [hturn, Bool.not] at next_turn
+        rw [bipartiteMatching_role_remains (cfg v) ((PNAlgorithm.CfgOn'.stepComm (bipartiteMatching P) (PNAlgorithm.CfgOn.stepSend (bipartiteMatching P) cfg) v).1)] at hrole
+        have hdec := bipartiteMatching_proposing_decreases nstate smsg hrole hempty next_turn
+        exact Set.ssubset_of_ssubset_of_subset hdec hsub
+    · apply Set.not_nonempty_iff_eq_empty.mp at hempty
+      have hdec := Set.empty_ssubset.mpr hnonempty
+      rw [← hempty] at hdec
+      have hsub := bipartiteMatching_neigh_subset nstate smsg
+      exact Set.ssubset_of_subset_of_ssubset hsub hdec
 
 -- lemma bipartiteMatching.stopped_unmatched_node_is_locally_finite
 
