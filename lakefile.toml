@@ -8,9 +8,9 @@ pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 pp.proofs.withType = false
 
 [[require]]
-name = "cslib"
-scope = "leanprover"
-rev = "v4.28.0"
+name = "algolean"
+scope = "Shreyas4991"
+rev = "v4.30.0"
 
 [[lean_lib]]
 name = "DGAlgorithms"
